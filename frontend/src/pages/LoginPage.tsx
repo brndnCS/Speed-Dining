@@ -1,18 +1,7 @@
-//import React from 'react';
+import SpeedDiningLogin from '../components/Login.tsx';
 
-import PageTitle from '../components/PageTitle.tsx';
-import Login from '../components/Login.tsx';
-
-const LoginPage = () =>
-{
-
-    return(
-      <div>
-        <PageTitle />
-        <Login />
-      </div>
-    );
+const LoginPage = () => {
+  return <SpeedDiningLogin />;
 };
 
 export default LoginPage;
-

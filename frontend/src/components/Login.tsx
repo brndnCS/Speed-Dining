@@ -1,54 +1,152 @@
 import React, { useState } from 'react';
-import { useNavigate } from "react-router-dom";
 
-
-
-function Login() {
-  const navigate = useNavigate();
+function SpeedDiningLogin() {
   const [message, setMessage] = useState('');
   const [loginName, setLoginName] = useState('');
   const [loginPassword, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+
   async function doLogin(event: any): Promise<void> {
     event.preventDefault();
+    setIsLoading(true);
     var obj = { login: loginName, password: loginPassword };
     var js = JSON.stringify(obj);
+    
     try {
-      const response = await fetch('http://localhost:5001/api/login',
+      const response = await fetch('http://localhost:5000/api/login',
         { method: 'POST', body: js, headers: { 'Content-Type': 'application/json' } });
-      var res = JSON.parse(await response.text());
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      var res = await response.json();
+      
       if (res.id <= 0) {
         setMessage('User/Password combination incorrect');
-      }
-      else {
+      } else {
         var user = { firstName: res.firstName, lastName: res.lastName, id: res.id }
         localStorage.setItem('user_data', JSON.stringify(user));
         setMessage('');
         window.location.href = '/cards';
       }
+    } catch (error: any) {
+      setMessage('Connection error. Please try again.');
+      console.error(error);
+    } finally {
+      setIsLoading(false);
     }
-    catch (error: any) {
-      alert(error.toString());
-      return;
-    }
-  };
+  }
 
   function handleSetLoginName(e: any): void {
     setLoginName(e.target.value);
   }
+
   function handleSetPassword(e: any): void {
     setPassword(e.target.value);
   }
+
   return (
-    <div id="loginDiv">
-      <span id="inner-title">PLEASE LOG IN</span><br />
-      Login: <input type="text" id="loginName" placeholder="Username"
-        onChange={handleSetLoginName} />
-      Password: <input type="password" id="loginPassword" placeholder="Password"
-        onChange={handleSetPassword} />
-      <input type="submit" id="loginButton" className="buttons" value="Do It"
-        onClick={doLogin} />
-      <span id="loginResult">{message}</span>
+    <div className="min-h-screen w-full bg-gradient-to-br from-pink-500 via-red-500 to-orange-500 flex items-center justify-center p-4">
+      {/* Animated background elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-20 left-10 w-72 h-72 bg-white/10 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute bottom-20 right-10 w-96 h-96 bg-yellow-300/10 rounded-full blur-3xl animate-pulse"></div>
+      </div>
+
+      {/* Login Card */}
+      <div className="relative w-full max-w-lg">
+        <div className="bg-white rounded-3xl shadow-2xl overflow-hidden transform transition-all duration-300 hover:scale-105">
+          {/* Header */}
+          <div className="bg-gradient-to-r from-pink-500 to-red-500 p-8 text-center">
+            <div className="text-6xl mb-4">🍽️</div>
+            <h1 className="text-4xl font-bold text-white mb-2">Speed Dining</h1>
+            <p className="text-pink-100">Swipe right on your next meal</p>
+          </div>
+
+          {/* Form */}
+          <div className="p-8">
+            <div className="space-y-6">
+              {/* Username Input */}
+              <div>
+                <label className="block text-gray-700 font-semibold mb-2">
+                  Username
+                </label>
+                <input
+                  type="text"
+                  value={loginName}
+                  onChange={handleSetLoginName}
+                  placeholder="Enter your username"
+                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-pink-500 focus:outline-none transition-colors"
+                  onKeyPress={(e: any) => e.key === 'Enter' && doLogin(e)}
+                />
+              </div>
+
+              {/* Password Input */}
+              <div>
+                <label className="block text-gray-700 font-semibold mb-2">
+                  Password
+                </label>
+                <input
+                  type="password"
+                  value={loginPassword}
+                  onChange={handleSetPassword}
+                  placeholder="Enter your password"
+                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-pink-500 focus:outline-none transition-colors"
+                  onKeyPress={(e: any) => e.key === 'Enter' && doLogin(e)}
+                />
+              </div>
+
+              {/* Error Message */}
+              {message && (
+                <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded">
+                  <p className="text-red-700 text-sm">{message}</p>
+                </div>
+              )}
+
+              {/* Login Button */}
+              <button
+                type="button"
+                onClick={doLogin}
+                disabled={isLoading}
+                className="w-full bg-gradient-to-r from-pink-500 to-red-500 text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+              >
+                {isLoading ? (
+                  <span className="flex items-center justify-center">
+                    <svg className="animate-spin h-5 w-5 mr-3" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Logging in...
+                  </span>
+                ) : (
+                  "Let's Dine! 🚀"
+                )}
+              </button>
+            </div>
+
+            {/* Additional Links */}
+            <div className="mt-6 text-center space-y-3">
+              <button className="block w-full text-pink-500 hover:text-pink-600 font-semibold text-sm transition-colors">
+                Forgot password?
+              </button>
+              <div className="text-gray-600 text-sm">
+                Don't have an account?{' '}
+                <button className="text-pink-500 hover:text-pink-600 font-semibold transition-colors">
+                  Sign up
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer tagline */}
+        <p className="text-center text-white mt-6 text-sm font-medium drop-shadow-lg">
+          Discover restaurants as fast as you swipe ❤️
+        </p>
+      </div>
     </div>
   );
-};
-export default Login;
+}
+
+export default SpeedDiningLogin;

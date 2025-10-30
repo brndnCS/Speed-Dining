@@ -26,7 +26,7 @@ function CardUI() {
         let obj = { userId: userId, card: card };
         let js = JSON.stringify(obj);
         try {
-            const response = await fetch('http://localhost:5001/api/addcard',
+            const response = await fetch('http://localhost:5000/api/addcard',
                 { method: 'POST', body: js, headers: { 'Content-Type': 'application/json' } });
             let txt = await response.text();
             let res = JSON.parse(txt);
@@ -46,7 +46,7 @@ function CardUI() {
         let obj = { userId: userId, search: search };
         let js = JSON.stringify(obj);
         try {
-            const response = await fetch('http://localhost:5001/api/searchcards',
+            const response = await fetch('http://localhost:5000/api/searchcards',
                 { method: 'POST', body: js, headers: { 'Content-Type': 'application/json' } });
             let txt = await response.text();
             let res = JSON.parse(txt);
