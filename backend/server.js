@@ -70,6 +70,85 @@ app.post('/api/login', async (req, res, next) => {
     var ret = { id: id, firstName: fn, lastName: ln, error: '' };
     res.status(200).json(ret);
 });
+
+async function getNextSeq(db, name) {
+  const counters = db.collection('Counters');
+  let r;
+
+  // Try v4+ option first
+  try {
+    r = await counters.findOneAndUpdate(
+      { _id: name },
+      { $inc: { seq: 1 } },
+      { upsert: true, returnDocument: 'after' }
+    );
+  } catch (e) {
+    // Fallback for v3.x
+    if (String(e).includes('returnDocument')) {
+      r = await counters.findOneAndUpdate(
+        { _id: name },
+        { $inc: { seq: 1 } },
+        { upsert: true, returnOriginal: false }
+      );
+    } else {
+      throw e;
+    }
+  }
+
+  // If we still didn’t get a doc (some older combos), read it back
+  if (!r.value) {
+    const doc = await counters.findOne({ _id: name });
+    if (!doc) throw new Error('Counter document missing after upsert');
+    return doc.seq;
+  }
+  return r.value.seq;
+}
+
+app.post('/api/signup', async (req, res) => {
+  try {
+    const { login, password, firstName, lastName } = req.body || {};
+    if (!login || !password || !firstName || !lastName) {
+      return res.status(400).json({ id: -1, firstName: '', lastName: '', error: 'Missing fields' });
+    }
+
+    const db = client.db('COP4331');
+    const users = db.collection('users');
+
+    const norm = String(login).trim().toLowerCase();
+
+    // duplicate check (prefer LoginLower if you have it)
+    let existing = await users.findOne({ LoginLower: norm });
+    if (!existing) existing = await users.findOne({ Login: String(login).trim() });
+    if (existing) {
+      return res.status(409).json({ id: -1, firstName: '', lastName: '', error: 'User already exists' });
+    }
+
+    const nextId = await getNextSeq(db, 'UserID');
+
+    const doc = {
+      UserID: nextId,
+      FirstName: String(firstName).trim(),
+      LastName: String(lastName).trim(),
+      Login: String(login).trim(),
+      LoginLower: norm,
+      Password: String(password) // plaintext for now to match your current /api/login
+    };
+
+    const r = await users.insertOne(doc);
+    if (!r.insertedId) throw new Error('Insert failed');
+
+    return res.status(201).json({
+      id: nextId,
+      firstName: doc.FirstName,
+      lastName: doc.LastName,
+      error: ''
+    });
+  } catch (e) {
+    console.error('Signup error:', e);
+    return res.status(500).json({ id: -1, firstName: '', lastName: '', error: String(e.message || e) });
+  }
+});
+
 app.post('/api/searchcards', async (req, res, next) => {
     // incoming: userId, search
     // outgoing: results[], error
