@@ -13,7 +13,7 @@ function SpeedDiningLogin() {
     var js = JSON.stringify(obj);
     
     try {
-      const response = await fetch('http://localhost:5000/api/login',
+      const response = await fetch('http://localhost:5001/api/login',
         { method: 'POST', body: js, headers: { 'Content-Type': 'application/json' } });
       
       if (!response.ok) {
@@ -132,7 +132,10 @@ function SpeedDiningLogin() {
               </button>
               <div className="text-gray-600 text-sm">
                 Don't have an account?{' '}
-                <button className="text-pink-500 hover:text-pink-600 font-semibold transition-colors">
+                <button
+                  onClick={() => window.location.href = '/signup'} 
+                  className="text-pink-500 hover:text-pink-600 font-semibold transition-colors"
+                >
                   Sign up
                 </button>
               </div>
