@@ -1,3 +1,7 @@
+require('dotenv').config();
+const axios = require('axios');
+const GOOGLE_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
+
 const express = require('express');
 const cors = require('cors');
 const app = express();
@@ -163,6 +167,94 @@ app.post('/api/searchcards', async (req, res, next) => {
     }
     var ret = { results: _ret, error: error };
     res.status(200).json(ret);
+});
+
+//restaurant recommendations
+app.post('/api/recommendations', async (req, res, next) => {
+    //incoming: latitude, longitude
+    //outgoing: array of restaurant results or error
+    
+    const { latitude, longitude } = req.body;
+    
+    if (!latitude || !longitude) {
+        return res.status(400).json({ error: 'Latitude and longitude are required.' });
+    }
+
+    const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${latitude},${longitude}&radius=5000&type=restaurant&key=${GOOGLE_API_KEY}`;
+
+    try {
+        const response = await axios.get(url);
+
+        //shuffle results
+
+        let results = response.data.results || [];
+        for (let i = results.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [results[i], results[j]] = [results[j], results[i]];
+        }
+        
+        res.status(200).json({ results: results });
+
+    } catch (e) {
+        console.error('Google API error:', e.message);
+        res.status(500).json({ error: 'Failed to fetch from Google API' });
+    }
+});
+
+//save a restaurant aka if yes is clicked
+app.post('/api/saveRestaurant', async (req, res, next) => {
+    //incoming: userId, restaurant (object)
+    //outgoing: { id: newDocumentId } or { error: ... }
+    
+    const { userId, restaurant } = req.body;
+
+    //restaurant object to save
+    const newSavedRestaurant = {
+        UserId: userId,
+        PlaceId: restaurant.place_id,
+        Name: restaurant.name,
+        Vicinity: restaurant.vicinity,
+        Rating: restaurant.rating,
+        UserRating: 'pending'
+    };
+    
+    var error = '';
+    
+    try {
+        const db = client.db('SpeedDining'); // Using a new DB for this app
+        const result = await db.collection('SavedRestaurants').insertOne(newSavedRestaurant);
+        
+        if (!result.insertedId) {
+            throw new Error('Insert failed');
+        }
+
+        res.status(201).json({ id: result.insertedId, error: '' });
+
+    } catch (e) {
+        error = e.toString();
+        res.status(500).json({ error: error });
+    }
+});
+
+//get the user's saved list
+app.post('/api/myRestaurants', async (req, res, next) => {
+    //incoming: userId
+    //outgoing: { results: [] } or { error: ... }
+
+    const { userId } = req.body;
+    var error = '';
+
+    try {
+        const db = client.db('SpeedDining');
+        //get all restaurants saved by user
+        const results = await db.collection('SavedRestaurants').find({ UserId: userId }).toArray();
+        
+        res.status(200).json({ results: results, error: '' });
+
+    } catch (e) {
+        error = e.toString();
+        res.status(500).json({ error: error });
+    }
 });
 
 app.listen(5001); // start Node + Express server on port 5000

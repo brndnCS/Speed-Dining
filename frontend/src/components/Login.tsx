@@ -1,10 +1,43 @@
 import React, { useState } from 'react';
+import GridMotion from './GridMotion';
 
 function SpeedDiningLogin() {
   const [message, setMessage] = useState('');
   const [loginName, setLoginName] = useState('');
   const [loginPassword, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  // Restaurant images for the animated background
+  const backgroundItems = [
+    '/images/HamburgerSpeeddining.png',
+    '/images/HotdogSpeedDining.png',
+    '/images/speeddiningdonut.png',
+    '/images/HamburgerSpeeddining.png',
+    '/images/HotdogSpeedDining.png',
+    '/images/speeddiningdonut.png',
+    '/images/HamburgerSpeeddining.png',
+    '/images/HotdogSpeedDining.png',
+    '/images/speeddiningdonut.png',
+    '/images/HamburgerSpeeddining.png',
+    '/images/HotdogSpeedDining.png',
+    '/images/speeddiningdonut.png',
+    '/images/HamburgerSpeeddining.png',
+    '/images/HotdogSpeedDining.png',
+    '/images/speeddiningdonut.png',
+    '/images/HamburgerSpeeddining.png',
+    '/images/HotdogSpeedDining.png',
+    '/images/speeddiningdonut.png',
+    '/images/HamburgerSpeeddining.png',
+    '/images/HotdogSpeedDining.png',
+    '/images/speeddiningdonut.png',
+    '/images/HamburgerSpeeddining.png',
+    '/images/HotdogSpeedDining.png',
+    '/images/speeddiningdonut.png',
+    '/images/HamburgerSpeeddining.png',
+    '/images/HotdogSpeedDining.png',
+    '/images/speeddiningdonut.png',
+    '/images/HamburgerSpeeddining.png',
+  ];
 
   async function doLogin(event: any): Promise<void> {
     event.preventDefault();
@@ -47,106 +80,111 @@ function SpeedDiningLogin() {
   }
 
   return (
-    <div className="min-h-screen w-full bg-gradient-to-br from-pink-500 via-red-500 to-orange-500 flex items-center justify-center p-4">
-      {/* Animated background elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-20 left-10 w-72 h-72 bg-white/10 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-20 right-10 w-96 h-96 bg-yellow-300/10 rounded-full blur-3xl animate-pulse"></div>
+    <div className="relative min-h-screen w-full overflow-hidden">
+      {/* Animated GridMotion Background */}
+      <div className="absolute inset-0 z-0">
+        <GridMotion items={backgroundItems} gradientColor="rgba(236, 72, 153, 0.3)" />
       </div>
 
-      {/* Login Card */}
-      <div className="relative w-full max-w-lg">
-        <div className="bg-white rounded-3xl shadow-2xl overflow-hidden transform transition-all duration-300 hover:scale-105">
-          {/* Header */}
-          <div className="bg-gradient-to-r from-pink-500 to-red-500 p-8 text-center">
-            <div className="text-6xl mb-4">🍽️</div>
-            <h1 className="text-4xl font-bold text-white mb-2">Speed Dining</h1>
-            <p className="text-pink-100">Swipe right on your next meal</p>
-          </div>
+      {/* Gradient overlay matching original colors */}
+      <div className="absolute inset-0 bg-gradient-to-br from-pink-500/40 via-red-500/40 to-orange-500/40 z-10"></div>
 
-          {/* Form */}
-          <div className="p-8">
-            <div className="space-y-6">
-              {/* Username Input */}
-              <div>
-                <label className="block text-gray-700 font-semibold mb-2">
-                  Username
-                </label>
-                <input
-                  type="text"
-                  value={loginName}
-                  onChange={handleSetLoginName}
-                  placeholder="Enter your username"
-                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-pink-500 focus:outline-none transition-colors"
-                  onKeyPress={(e: any) => e.key === 'Enter' && doLogin(e)}
-                />
-              </div>
-
-              {/* Password Input */}
-              <div>
-                <label className="block text-gray-700 font-semibold mb-2">
-                  Password
-                </label>
-                <input
-                  type="password"
-                  value={loginPassword}
-                  onChange={handleSetPassword}
-                  placeholder="Enter your password"
-                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-pink-500 focus:outline-none transition-colors"
-                  onKeyPress={(e: any) => e.key === 'Enter' && doLogin(e)}
-                />
-              </div>
-
-              {/* Error Message */}
-              {message && (
-                <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded">
-                  <p className="text-red-700 text-sm">{message}</p>
-                </div>
-              )}
-
-              {/* Login Button */}
-              <button
-                type="button"
-                onClick={doLogin}
-                disabled={isLoading}
-                className="w-full bg-gradient-to-r from-pink-500 to-red-500 text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-              >
-                {isLoading ? (
-                  <span className="flex items-center justify-center">
-                    <svg className="animate-spin h-5 w-5 mr-3" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Logging in...
-                  </span>
-                ) : (
-                  "Let's Dine! 🚀"
-                )}
-              </button>
+      {/* Login Content */}
+      <div className="relative z-20 min-h-screen flex items-center justify-center p-4">
+        {/* Login Card */}
+        <div className="w-full max-w-lg">
+          <div className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl overflow-hidden transform transition-all duration-300 hover:scale-105">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-pink-500 to-red-500 p-8 text-center">
+              <div className="text-6xl mb-4">🍽️</div>
+              <h1 className="text-4xl font-bold text-white mb-2">Speed Dining</h1>
+              <p className="text-pink-100">Swipe right on your next meal</p>
             </div>
 
-            {/* Additional Links */}
-            <div className="mt-6 text-center space-y-3">
-              <button className="block w-full text-pink-500 hover:text-pink-600 font-semibold text-sm transition-colors">
-                Forgot password?
-              </button>
-              <div className="text-gray-600 text-sm">
-                Don't have an account?{' '}
+            {/* Form */}
+            <div className="p-8">
+              <div className="space-y-6">
+                {/* Username Input */}
+                <div>
+                  <label className="block text-gray-700 font-semibold mb-2">
+                    Username
+                  </label>
+                  <input
+                    type="text"
+                    value={loginName}
+                    onChange={handleSetLoginName}
+                    placeholder="Enter your username"
+                    className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-pink-500 focus:outline-none transition-colors"
+                    onKeyPress={(e: any) => e.key === 'Enter' && doLogin(e)}
+                  />
+                </div>
+
+                {/* Password Input */}
+                <div>
+                  <label className="block text-gray-700 font-semibold mb-2">
+                    Password
+                  </label>
+                  <input
+                    type="password"
+                    value={loginPassword}
+                    onChange={handleSetPassword}
+                    placeholder="Enter your password"
+                    className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-pink-500 focus:outline-none transition-colors"
+                    onKeyPress={(e: any) => e.key === 'Enter' && doLogin(e)}
+                  />
+                </div>
+
+                {/* Error Message */}
+                {message && (
+                  <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded">
+                    <p className="text-red-700 text-sm">{message}</p>
+                  </div>
+                )}
+
+                {/* Login Button */}
                 <button
-                  onClick={() => window.location.href = '/signup'} 
-                  className="text-pink-500 hover:text-pink-600 font-semibold transition-colors"
+                  type="button"
+                  onClick={doLogin}
+                  disabled={isLoading}
+                  className="w-full bg-gradient-to-r from-pink-500 to-red-500 text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                 >
-                  Sign up
+                  {isLoading ? (
+                    <span className="flex items-center justify-center">
+                      <svg className="animate-spin h-5 w-5 mr-3" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Logging in...
+                    </span>
+                  ) : (
+                    "Let's Dine! 🚀"
+                  )}
                 </button>
               </div>
+
+              {/* Additional Links */}
+              <div className="mt-6 text-center space-y-3">
+                <button className="block w-full text-pink-500 hover:text-pink-600 font-semibold text-sm transition-colors">
+                  Forgot password?
+                </button>
+                <div className="text-gray-600 text-sm">
+                  Don't have an account?{' '}
+                  <button
+                    onClick={() => window.location.href = '/signup'} 
+                    className="text-pink-500 hover:text-pink-600 font-semibold transition-colors"
+                  >
+                    Sign up
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Footer tagline */}
-        <p className="text-center text-white mt-6 text-sm font-medium drop-shadow-lg">
-          Discover restaurants as fast as you swipe ❤️
-        </p>
+          {/* Footer tagline */}
+          <p className="text-center text-white mt-6 text-sm font-medium drop-shadow-lg">
+            Discover restaurants as fast as you swipe ❤️
+          </p>
+        </div>
       </div>
     </div>
   );

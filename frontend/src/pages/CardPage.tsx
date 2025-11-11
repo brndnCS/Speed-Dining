@@ -1,12 +1,18 @@
+// src/pages/CardPage.tsx
+// (This is the entire modified file)
+
+
 import LoggedInName from '../components/LoggedInName';
-import CardUI from '../components/CardUI';
+// Import your new component
+import RecommendationUI from '../components/RecommendationUI';
 
 const CardPage = () =>
 {
     return(
         <div>
             <LoggedInName />
-            <CardUI />
+            {/* Use your new component here */}
+            <RecommendationUI />
         </div>
     );
 }
