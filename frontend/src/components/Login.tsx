@@ -61,7 +61,7 @@ function SpeedDiningLogin() {
         var user = { firstName: res.firstName, lastName: res.lastName, id: res.id }
         localStorage.setItem('user_data', JSON.stringify(user));
         setMessage('');
-        window.location.href = '/loading';
+        window.location.href = '/cards';
       }
     } catch (error: any) {
       setMessage('Connection error. Please try again.');
