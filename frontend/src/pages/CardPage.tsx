@@ -11,7 +11,6 @@ const CardPage = () =>
     return(
         <div>
             <LoggedInName />
-            {/* Use your new component here */}
             <RecommendationUI />
         </div>
     );
