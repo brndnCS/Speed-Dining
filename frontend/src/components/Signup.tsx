@@ -121,25 +121,30 @@ function SpeedDiningSignup() {
   return (
     <div className="relative min-h-screen w-full overflow-hidden">
       {/* Animated GridMotion Background */}
-      <div className="absolute inset-0 z-0">
+      <div className="fixed inset-0 z-0">
         <GridMotion items={backgroundItems} gradientColor="rgba(236, 72, 153, 0.3)" />
       </div>
 
       {/* Gradient overlay matching original colors */}
-      <div className="absolute inset-0 bg-gradient-to-br from-pink-500/40 via-red-500/40 to-orange-500/40 z-10"></div>
+      <div className="fixed inset-0 bg-gradient-to-br from-pink-500/40 via-red-500/40 to-orange-500/40 z-10"></div>
 
       {/* Signup Content */}
       <div className="relative z-20 min-h-screen flex items-center justify-center p-4">
         {/* Signup Card */}
         <div className="w-full max-w-lg">
           <div className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl overflow-hidden transform transition-all duration-300 hover:scale-105">
-            {/* Header */}
-            <div className="bg-gradient-to-r from-pink-500 to-red-500 p-8 text-center">
-              <div className="text-6xl mb-4">🍽️</div>
-              <h1 className="text-4xl font-bold text-white mb-2">Join Speed Dining</h1>
-              <p className="text-pink-100">Create your account and start swiping!</p>
+          {/* Header */}
+          <div className="bg-gradient-to-r from-pink-500 to-red-500 p-8 text-center">
+            <div className="flex justify-center mb-4">
+              <img 
+                src="/images/speeddininglogo.png" 
+                alt="Speed Dining Logo" 
+                className="h-[150px] w-[150px] object-contain ml-5" 
+              />
             </div>
-
+            <h1 className="text-4xl font-bold text-white mb-2">Join Speed Dining</h1>
+            <p className="text-pink-100">Create your account and start swiping!</p>
+          </div>
             {/* Form */}
             <div className="p-8">
               <div className="space-y-5">

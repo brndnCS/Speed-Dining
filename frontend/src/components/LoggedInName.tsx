@@ -14,9 +14,10 @@ function LoggedInName() {
   return (
     <div className="absolute top-6 right-6 z-30">
       <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg px-6 py-3 flex items-center gap-4">
-        <span className="text-gray-700 font-medium">
-          Welcome to Speed Dining, <span className="font-bold text-pink-600">{getCurrentUserName()}</span>!
-        </span>
+        <div className="text-gray-700 font-medium text-center">
+          <div>Welcome to Speed Dining,</div>
+          <div className="font-bold text-pink-600">{getCurrentUserName()}!</div>
+        </div>
         <button 
           type="button" 
           onClick={doLogout}

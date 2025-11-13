@@ -137,18 +137,15 @@ function RecommendationUI() {
   if (viewingList) {
     return (
       <div className="min-h-screen w-full bg-gradient-to-br from-pink-500 via-red-500 to-orange-500 p-8">
-        {/* Logo and Title Header */}
-        <div className="max-w-4xl mx-auto mb-8">
-          <div className="flex items-center justify-center gap-4 bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl py-6 px-8 w-fit mx-auto">
+        {/* Logo and Title Header - Top Left */}
+        <div className="absolute top-6 left-6 z-30">
+        <div className="flex items-center gap-3 bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg py-3 px-4 pl-4 pr-1">
             <img 
-              src="/images/speeddininglogo.png" 
-              alt="Speed Dining Logo" 
-              className="h-16 w-16 object-contain"
+            src="/images/speeddininglogo.png" 
+            alt="Speed Dining Logo" 
+            className="h-[120px] w-[120px] object-contain ml-2"
             />
-            <h1 className="text-5xl font-bold bg-gradient-to-r from-pink-500 to-red-500 bg-clip-text text-transparent pb-2">
-              Speed Dining
-            </h1>
-          </div>
+        </div>
         </div>
 
         <div className="max-w-4xl mx-auto">
@@ -187,20 +184,16 @@ function RecommendationUI() {
 
   return (
     <div className="min-h-screen w-full bg-gradient-to-br from-pink-500 via-red-500 to-orange-500 p-8">
-      {/* Logo and Title Header */}
-      <div className="max-w-4xl mx-auto mb-8">
-        <div className="flex items-center justify-center gap-4 bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl py-6 px-8 w-fit mx-auto">
-          <img 
-            src="/images/speeddininglogo.png" 
-            alt="Speed Dining Logo" 
-            className="h-16 w-16 object-contain"
-          />
-          <h1 className="text-5xl font-bold bg-gradient-to-r from-pink-500 to-red-500 bg-clip-text text-transparent pb-2">
-            Speed Dining
-          </h1>
-        </div>
-      </div>
-
+    {/* Logo and Title Header - Top Left */}
+    <div className="absolute top-6 left-6 z-30">
+    <div className="flex items-center gap-3 bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg py-3 px-4 pl-4 pr-1">
+        <img 
+        src="/images/speeddininglogo.png" 
+        alt="Speed Dining Logo" 
+        className="h-[120px] w-[120px] object-contain ml-2"
+        />
+    </div>
+    </div>
       <div className="max-w-4xl mx-auto">
         
         {/* Search Interface */}

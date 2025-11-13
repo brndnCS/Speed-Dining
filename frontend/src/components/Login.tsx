@@ -96,11 +96,16 @@ function SpeedDiningLogin() {
           <div className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl overflow-hidden transform transition-all duration-300 hover:scale-105">
             {/* Header */}
             <div className="bg-gradient-to-r from-pink-500 to-red-500 p-8 text-center">
-              <div className="text-6xl mb-4">🍽️</div>
+              <div className="flex justify-center mb-4">
+                <img 
+                  src="/images/speeddininglogo.png" 
+                  alt="Speed Dining Logo" 
+                  className="h-[150px] w-[150px] object-contain ml-5" 
+                />
+              </div>
               <h1 className="text-4xl font-bold text-white mb-2">Speed Dining</h1>
               <p className="text-pink-100">Swipe right on your next meal</p>
             </div>
-
             {/* Form */}
             <div className="p-8">
               <div className="space-y-6">
