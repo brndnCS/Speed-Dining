@@ -134,50 +134,169 @@ function RecommendationUI() {
   };
 
   // Show "My List" view
-  if (viewingList) {
+if (viewingList) {
+  const handleDeleteRestaurant = async (placeId: string, name: string) => {
+    if (!window.confirm(`Are you sure you want to delete "${name}"?`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch('http://localhost:5001/api/deleteRestaurant', {
+        method: 'POST',
+        body: JSON.stringify({ userId: userId, placeId: placeId }),
+        headers: { 'Content-Type': 'application/json' }
+      });
+      let res = JSON.parse(await response.text());
+      
+      if (res.error) {
+        setMessage(`Error: ${res.error}`);
+      } else {
+        setMyList(myList.filter(item => item.PlaceId !== placeId));
+        setMessage(`"${name}" deleted successfully`);
+      }
+    } catch (e: any) {
+      setMessage(e.toString());
+    }
+  };
+
+  const handleRateRestaurant = async (placeId: string, rating: number) => {
+    try {
+      const response = await fetch('http://localhost:5001/api/rateRestaurant', {
+        method: 'POST',
+        body: JSON.stringify({ userId: userId, placeId: placeId, rating: rating }),
+        headers: { 'Content-Type': 'application/json' }
+      });
+      let res = JSON.parse(await response.text());
+      
+      if (res.error) {
+        setMessage(`Error: ${res.error}`);
+      } else {
+        setMyList(myList.map(item => 
+          item.PlaceId === placeId ? { ...item, UserRating: rating } : item
+        ));
+        setMessage(`Rating updated to ${rating} star${rating !== 1 ? 's' : ''}`);
+      }
+    } catch (e: any) {
+      setMessage(e.toString());
+    }
+  };
+
+  // Star Rating
+  const StarRating = ({ placeId, currentRating }: { placeId: string, currentRating: number }) => {
+    const [hoveredStar, setHoveredStar] = useState(0);
+
     return (
-      <div className="min-h-screen w-full bg-gradient-to-br from-pink-500 via-red-500 to-orange-500 p-8">
-        {/* Logo and Title Header - Top Left */}
-        <div className="absolute top-6 left-6 z-30">
+      <div className="flex gap-1 items-center">
+        {[1, 2, 3, 4, 5].map((star) => (
+          <button
+            key={star}
+            onClick={() => handleRateRestaurant(placeId, star)}
+            onMouseEnter={() => setHoveredStar(star)}
+            onMouseLeave={() => setHoveredStar(0)}
+            className="text-2xl transition-transform hover:scale-125 cursor-pointer focus:outline-none bg-transparent border-0 p-0"
+            title={`Rate ${star} star${star !== 1 ? 's' : ''}`}
+          >
+            <span className={star <= (hoveredStar || currentRating) ? 'text-yellow-400' : 'text-gray-300'}>
+              ★
+            </span>
+          </button>
+        ))}
+        
+      </div>
+    );
+  };
+
+  return (
+    <div className="min-h-screen w-full bg-gradient-to-br from-pink-500 via-red-500 to-orange-500 p-8">
+      {/* Logo and Title Header - Top Left */}
+      <div className="absolute top-6 left-6 z-30">
         <div className="flex items-center gap-3 bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg py-3 px-4 pl-4 pr-1">
-            <img 
+          <img 
             src="/images/speeddininglogo.png" 
             alt="Speed Dining Logo" 
             className="h-[120px] w-[120px] object-contain ml-2"
-            />
+          />
         </div>
-        </div>
+      </div>
 
-        <div className="max-w-4xl mx-auto">
-          <div className="bg-white/95 backdrop-blur-sm rounded-3xl p-8 shadow-2xl">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-3xl font-bold text-gray-800">My Saved Restaurants</h2>
-              <button 
-                onClick={() => setViewingList(false)}
-                className="bg-gradient-to-r from-pink-500 to-red-500 text-white font-bold py-2 px-6 rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-200"
-              >
-                Back to Search
-              </button>
+      <div className="max-w-4xl mx-auto">
+        <div className="bg-white/95 backdrop-blur-sm rounded-3xl p-8 shadow-2xl">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-3xl font-bold text-gray-800">My Saved Restaurants</h2>
+            <button 
+              onClick={() => {
+                setViewingList(false);
+                setMessage('');
+              }}
+              className="bg-gradient-to-r from-pink-500 to-red-500 text-white font-bold py-2 px-6 rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-200"
+            >
+              Back to Search
+            </button>
+          </div>
+
+          {/* Success/Error Message */}
+          {message && (
+            <div className="mb-4 bg-green-50 border-l-4 border-green-500 p-4 rounded-xl animate-fade-in">
+              <p className="text-green-700 font-medium">{message}</p>
             </div>
-            <div className="space-y-4">
-              {myList.map(item => (
-                <div key={item.PlaceId} className="bg-gray-50 rounded-xl p-6 shadow">
-                  <h3 className="text-xl font-bold text-gray-800 mb-2">{item.Name}</h3>
-                  <p className="text-gray-600 mb-2">📍 {item.Vicinity}</p>
-                  <p className="text-gray-700">⭐ Your Rating: {item.UserRating}</p>
+          )}
+
+          {/* Restaurant List */}
+          <div className="space-y-4">
+            {myList.map(item => (
+              <div 
+                key={item.PlaceId} 
+                className="bg-gradient-to-r from-white to-gray-50 rounded-xl p-6 shadow-md hover:shadow-xl transition-all duration-300 border border-gray-200"
+              >
+                <div className="flex justify-between items-start mb-4">
+                  <div className="flex-1">
+                    <h3 className="text-2xl font-bold text-gray-800 mb-2">{item.Name}</h3>
+                    <p className="text-gray-600 mb-1">📍 {item.Vicinity}</p>
+                    {item.Rating && (
+                      <p className="text-gray-700 mb-3">
+                        ⭐ Google Rating: <span className="font-semibold">{item.Rating}</span>
+                      </p>
+                    )}
+                  </div>
+                  
+                  {/* Delete Button */}
+                  <button
+                    onClick={() => handleDeleteRestaurant(item.PlaceId, item.Name)}
+                    className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-200 flex items-center gap-2"
+                  >
+                    <span>Delete</span>
+                  </button>
                 </div>
-              ))}
-              {myList.length === 0 && (
-                <p className="text-center text-gray-600 text-lg py-8">
+
+                {/* Star Rating Section */}
+                <div className="pt-4 border-t border-gray-200">
+                  <p className="text-sm text-gray-600 font-semibold mb-2">Your Rating:</p>
+                  <StarRating 
+                    placeId={item.PlaceId} 
+                    currentRating={item.UserRating || 0} 
+                  />
+                </div>
+              </div>
+            ))}
+
+            {/* Empty State */}
+            {myList.length === 0 && (
+              <div className="text-center py-16">
+                <div className="text-6xl mb-4">🍽️</div>
+                <p className="text-gray-600 text-xl">
                   You haven't saved any restaurants yet.
                 </p>
-              )}
-            </div>
+                <p className="text-gray-500 mt-2">
+                  Start swiping to find your perfect match!
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>
-    );
-  }
+    </div>
+  );
+}
 
   const currentRestaurant = recommendations.length > 0 ? recommendations[currentIndex] : null;
   const isLastCard = currentIndex === recommendations.length - 1 && recommendations.length > 0;
