@@ -12,9 +12,9 @@ function RecommendationUI() {
   const [showMatchAnimation, setShowMatchAnimation] = useState(false);
   
   // Filter states
-  const [distance, setDistance] = useState('10 mi');
+  const [distance, setDistance] = useState('16093'); // 10 miles in meters
   const [cuisine, setCuisine] = useState('American');
-  const [price, setPrice] = useState('$');
+  const [price, setPrice] = useState('1'); // Price level 1
 
   // Restaurant list state
   const [recommendations, setRecommendations] = useState<any[]>([]);
@@ -33,9 +33,19 @@ function RecommendationUI() {
           const { latitude, longitude } = position.coords;
           
           try {
+            // 1. Create the body object with all filters
+            const body = {
+              latitude,
+              longitude,
+              distance: distance, // This state now holds meters
+              cuisine: cuisine,
+              price: price        // This state now holds "1", "2", or "3"
+            };
+
+            // 2. Send the new body
             const response = await fetch('http://localhost:5001/api/recommendations', {
               method: 'POST',
-              body: JSON.stringify({ latitude, longitude }),
+              body: JSON.stringify(body), // Send all filters
               headers: { 'Content-Type': 'application/json' }
             });
 
@@ -349,10 +359,10 @@ if (viewingList) {
                       onChange={(e) => setDistance(e.target.value)}
                       className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-pink-500 focus:outline-none transition-colors bg-white"
                     >
-                      <option value="5 mi">5 miles</option>
-                      <option value="10 mi">10 miles</option>
-                      <option value="20 mi">20 miles</option>
-                      <option value="50 mi">50 miles</option>
+                      <option value="8047">5 miles</option> {/* 5 miles in meters */}
+                      <option value="16093">10 miles</option> {/* 10 miles in meters */}
+                      <option value="32187">20 miles</option> {/* 20 miles in meters */}
+                      <option value="80467">50 miles</option> {/* 50 miles in meters */}
                     </select>
                   </div>
 
@@ -384,9 +394,9 @@ if (viewingList) {
                       onChange={(e) => setPrice(e.target.value)}
                       className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-pink-500 focus:outline-none transition-colors bg-white"
                     >
-                      <option value="$">$ - Budget Friendly</option>
-                      <option value="$">$ - Moderate</option>
-                      <option value="$$">$$ - Upscale</option>
+                      <option value="1">$ - Budget Friendly</option>
+                      <option value="2">$$ - Moderate</option> {/* Fixed bug and value */}
+                      <option value="3">$$$ - Upscale</option> {/* Fixed value and label */}
                     </select>
                   </div>
                 </div>
@@ -442,10 +452,19 @@ if (viewingList) {
                 }`}
               >
                 <div className="bg-white rounded-3xl shadow-2xl overflow-hidden">
-                  {/* Restaurant Image Placeholder */}
-                  <div className="h-64 bg-gradient-to-br from-orange-400 to-pink-500 flex items-center justify-center">
-                    <span className="text-9xl">🍽️</span>
-                  </div>
+                  {/* Restaurant Image */}
+                  {currentRestaurant.photos && currentRestaurant.photos.length > 0 ? (
+                    <img
+                      src={`http://localhost:5001/api/photo?ref=${currentRestaurant.photos[0].photo_reference}`}
+                      alt={currentRestaurant.name}
+                      className="h-64 w-full object-cover" // object-cover ensures the image fills the space
+                    />
+                  ) : (
+                    // Fallback placeholder if no photo exists
+                    <div className="h-64 bg-gradient-to-br from-orange-400 to-pink-500 flex items-center justify-center">
+                      <span className="text-9xl">🍽️</span>
+                    </div>
+                  )}
 
                   {/* Restaurant Info */}
                   <div className="p-8">

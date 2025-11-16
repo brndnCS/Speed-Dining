@@ -171,22 +171,48 @@ app.post('/api/searchcards', async (req, res, next) => {
 
 //restaurant recommendations
 app.post('/api/recommendations', async (req, res, next) => {
-    //incoming: latitude, longitude
+    //incoming: latitude, longitude, distance, cuisine, price
     //outgoing: array of restaurant results or error
     
-    const { latitude, longitude } = req.body;
+    // 1. Get all values from the body, including new filters
+    const { latitude, longitude, distance, cuisine, price } = req.body;
     
     if (!latitude || !longitude) {
         return res.status(400).json({ error: 'Latitude and longitude are required.' });
     }
 
-    const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${latitude},${longitude}&radius=5000&type=restaurant&key=${GOOGLE_API_KEY}`;
+    // 2. Set a default radius (in meters) if distance isn't provided
+    //    We use parseInt to make sure it's a number.
+    const radius = distance ? parseInt(distance, 10) : 5000; // 5000m (5km) default
+
+    // 3. Dynamically build the URL
+    let url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${latitude},${longitude}&radius=${radius}&type=restaurant&key=${GOOGLE_API_KEY}`;
+
+    // 4. Add filters to the URL if they were provided
+    if (cuisine) {
+        // Use the 'keyword' param for cuisine types like "American"
+        url += `&keyword=${encodeURIComponent(cuisine)}`;
+    }
+
+    if (price) {
+        // Assuming price is a number string: "1", "2", "3", or "4"
+        const priceLevel = parseInt(price, 10);
+        
+        if (priceLevel <= 2) {
+            // maxprice=1 is Budget, maxprice=2 is Moderate
+            url += `&maxprice=${priceLevel}`;
+        } else {
+            // minprice=3 is Upscale, minprice=4 is Very Upscale
+            url += `&minprice=${priceLevel}`;
+        }
+    }
+
+    console.log(`Fetching from Google API: ${url}`); // Good for debugging
 
     try {
         const response = await axios.get(url);
 
         //shuffle results
-
         let results = response.data.results || [];
         for (let i = results.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
@@ -255,6 +281,27 @@ app.post('/api/myRestaurants', async (req, res, next) => {
         error = e.toString();
         res.status(500).json({ error: error });
     }
+});
+
+// Get a restaurant photo
+app.get('/api/photo', (req, res, next) => {
+    const photoReference = req.query.ref;
+    
+    if (!photoReference) {
+        return res.status(400).json({ error: 'Photo reference is required.' });
+    }
+
+    if (!GOOGLE_API_KEY) {
+        return res.status(500).json({ error: 'Google API Key not configured on server.' });
+    }
+
+    // Construct the Google Places Photo API URL. 
+    // maxwidth=411 is a good default for a mobile card view.
+    const photoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=411&photo_reference=${photoReference}&key=${GOOGLE_API_KEY}`;
+
+    // Redirect the client's request to the Google API URL
+    // The browser will then load the image from Google directly.
+    res.redirect(302, photoUrl);
 });
 
 app.listen(5001); // start Node + Express server on port 5000

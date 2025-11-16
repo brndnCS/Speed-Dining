@@ -162,7 +162,7 @@ function SpeedDiningLogin() {
                       Logging in...
                     </span>
                   ) : (
-                    "Let's Dine! 🚀"
+                    "Let's Dine!"
                   )}
                 </button>
               </div>
