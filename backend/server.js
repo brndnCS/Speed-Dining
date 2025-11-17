@@ -1,18 +1,4 @@
 require('dotenv').config();
-
-const nodemailer = require('nodemailer');
-const crypto = require('crypto');
-
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: parseInt(process.env.SMTP_PORT || '587', 10),
-  secure: false, // true if you use port 465
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS
-  }
-});
-
 const axios = require('axios');
 const GOOGLE_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
 
@@ -20,9 +6,47 @@ const express = require('express');
 const cors = require('cors');
 const app = express();
 const MongoClient = require('mongodb').MongoClient;
+const crypto = require('crypto');
+const nodemailer = require('nodemailer');
+
 const url = 'mongodb+srv://sparshpandey06_db_user:q56faVzHcdrE9a0F@cluster0.ody1sc1.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0'
 const client = new MongoClient(url);
 client.connect();
+
+const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:5001';
+
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: Number(process.env.SMTP_PORT || 587),
+  secure: false, // true if you use port 465
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS
+  }
+});
+
+async function sendVerificationEmail(userEmail, firstName, token) {
+  const verifyUrl = `${API_BASE_URL}/api/verify-email?token=${token}`;
+
+  const mailOptions = {
+    from: process.env.SMTP_USER,
+    to: userEmail,
+    subject: 'Verify your Speed Dining account',
+    html: `
+      <h2>Hi ${firstName || ''}, welcome to Speed Dining!</h2>
+      <p>Please verify your email by clicking the button below:</p>
+      <p>
+        <a href="${verifyUrl}" style="display:inline-block;padding:10px 16px;background:#ec4899;color:#fff;border-radius:6px;text-decoration:none;">
+          Verify my email
+        </a>
+      </p>
+      <p>Or copy and paste this link into your browser:</p>
+      <p>${verifyUrl}</p>
+    `
+  };
+
+  await transporter.sendMail(mailOptions);
+}
 
 
 app.use(cors());
@@ -63,57 +87,52 @@ app.post('/api/addcard', async (req, res, next) => {
 });
 
 
-app.post('/api/login', async (req, res) => {
+app.post('/api/login', async (req, res, next) => {
+  // incoming: login, password
+  // outgoing: id, firstName, lastName, error
+  const { login, password } = req.body;
+  let error = '';
+
   try {
-    // incoming: login (username), password
-    // outgoing: id, firstName, lastName, error
-    const { login, password } = req.body || {};
-
-    if (!login || !password) {
-      return res.status(400).json({
-        id: -1,
-        firstName: '',
-        lastName: '',
-        error: 'Missing username or password'
-      });
-    }
-
     const db = client.db('COP4331');
     const users = db.collection('users');
 
-    const username = String(login).trim();
-    const pwd = String(password);
+    const norm = String(login).trim().toLowerCase();
 
-    // Find by username + password
+    // look up by LoginLower or Login to be safe
     const user = await users.findOne({
-      Login: username,
-      Password: pwd   // (plaintext for now, to match your current setup)
+      $or: [
+        { LoginLower: norm, Password: password },
+        { Login: String(login).trim(), Password: password }
+      ]
     });
 
-    // No user found
     if (!user) {
       return res.status(401).json({
         id: -1,
         firstName: '',
         lastName: '',
-        error: 'Invalid username or password'
+        error: 'Invalid login or password'
       });
     }
 
-    if (user.IsVerified) {
+    if (!user.IsVerified) {
       return res.status(403).json({
         id: -1,
         firstName: '',
         lastName: '',
-        error: 'Email not verified. Please check your inbox.'
+        error: 'Please verify your email before logging in.'
       });
     }
 
-    // Successful login
+    const id = user.UserID;
+    const fn = user.FirstName || '';
+    const ln = user.LastName || '';
+
     return res.status(200).json({
-      id: user.UserID ?? -1,
-      firstName: user.FirstName || '',
-      lastName: user.LastName || '',
+      id,
+      firstName: fn,
+      lastName: ln,
       error: ''
     });
   } catch (e) {
@@ -126,8 +145,6 @@ app.post('/api/login', async (req, res) => {
     });
   }
 });
-
-
 
 
 async function getNextSeq(db, name) {
@@ -209,168 +226,116 @@ app.post('/api/signup', async (req, res) => {
   }
 });
 */
-
 app.post('/api/signup', async (req, res) => {
   try {
-    const { login, email, password, firstName, lastName } = req.body || {};
-
-    // Basic validation
-    if (!login || !email || !password || !firstName || !lastName) {
-      return res.status(400).json({
-        id: -1,
-        firstName: '',
-        lastName: '',
-        error: 'Missing required fields'
-      });
+    const { login, password, firstName, lastName } = req.body || {};
+    if (!login || !password || !firstName || !lastName) {
+      return res.status(400).json({ id: -1, firstName: '', lastName: '', error: 'Missing fields' });
     }
 
-    const username = String(login).trim();
-    const emailNorm = String(email).trim().toLowerCase();
-
-    // Very simple email sanity check
-    if (!emailNorm.includes('@')) {
-      return res.status(400).json({
-        id: -1,
-        firstName: '',
-        lastName: '',
-        error: 'Invalid email address'
-      });
-    }
+    // Ideally, login is an email. You can later rename this to Email in DB/UI.
+    const norm = String(login).trim().toLowerCase();
 
     const db = client.db('COP4331');
     const users = db.collection('users');
 
-    // Duplicate checks: username AND email unique
-    const existingByUsername = await users.findOne({ Login: username });
-    if (existingByUsername) {
-      return res.status(409).json({
-        id: -1,
-        firstName: '',
-        lastName: '',
-        error: 'Username already exists'
-      });
+    // duplicate check (prefer LoginLower if you have it)
+    let existing = await users.findOne({ LoginLower: norm });
+    if (!existing) existing = await users.findOne({ Login: String(login).trim() });
+    if (existing) {
+      return res.status(409).json({ id: -1, firstName: '', lastName: '', error: 'User already exists' });
     }
 
-    const existingByEmail = await users.findOne({ EmailLower: emailNorm });
-    if (existingByEmail) {
-      return res.status(409).json({
-        id: -1,
-        firstName: '',
-        lastName: '',
-        error: 'Email already in use'
-      });
-    }
-
-    // Get next user id
     const nextId = await getNextSeq(db, 'UserID');
 
-    // Generate verification token + expiry
+    // generate email verification token
     const verificationToken = crypto.randomBytes(32).toString('hex');
     const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
-    // User document to insert
     const doc = {
       UserID: nextId,
       FirstName: String(firstName).trim(),
       LastName: String(lastName).trim(),
-      Login: username,          // username for login
-      Email: emailNorm,         // store normalized email
-      EmailLower: emailNorm,    // duplicate-safe field
-      Password: String(password), // (plaintext for now, match your current login logic)
+      Login: String(login).trim(),
+      LoginLower: norm,
+      Password: String(password), // plaintext for now (same as your login)
       IsVerified: false,
       VerificationToken: verificationToken,
-      VerificationExpires: verificationExpires,
-      CreatedAt: new Date()
+      VerificationTokenExpires: verificationExpires
     };
 
-    const insertResult = await users.insertOne(doc);
-    if (!insertResult.insertedId) {
-      throw new Error('Insert failed');
-    }
+    const r = await users.insertOne(doc);
+    if (!r.insertedId) throw new Error('Insert failed');
 
-    // Build verify URL for frontend route
-    const baseUrl = process.env.FRONTEND_BASE_URL || 'http://localhost:5173';
-    const verifyUrl = `${baseUrl}/verify-email?token=${verificationToken}`;
-
-    // Send verification email
     try {
-      await transporter.sendMail({
-        from: process.env.MAIL_FROM || process.env.SMTP_USER,
-        to: emailNorm,
-        subject: 'Verify your Speed Dining account',
-        html: `
-          <p>Hi ${doc.FirstName},</p>
-          <p>Thanks for signing up for <strong>Speed Dining</strong>!</p>
-          <p>Please verify your email by clicking the link below:</p>
-          <p><a href="${verifyUrl}">Verify my email</a></p>
-          <p>This link will expire in 24 hours.</p>
-          <p>If you didn't create this account, you can ignore this email.</p>
-        `
+      await sendVerificationEmail(doc.Login, doc.FirstName, verificationToken);
+    } catch (emailErr) {
+      console.error('Error sending verification email:', emailErr);
+      // Optional: you could delete the user here if email fails
+      // await users.deleteOne({ _id: r.insertedId });
+      return res.status(500).json({
+        id: -1,
+        firstName: '',
+        lastName: '',
+        error: 'Account created, but failed to send verification email. Please contact support.'
       });
-    } catch (mailErr) {
-      console.error('Error sending verification email:', mailErr);
-      // You can decide if you want to fail signup or not. For now, we keep the account.
     }
 
-    // Successful signup response
     return res.status(201).json({
       id: nextId,
       firstName: doc.FirstName,
       lastName: doc.LastName,
-      error: '',
-      requiresVerification: true
+      error: ''
     });
   } catch (e) {
     console.error('Signup error:', e);
-    return res.status(500).json({
-      id: -1,
-      firstName: '',
-      lastName: '',
-      error: e.message || 'Server error'
-    });
+    return res.status(500).json({ id: -1, firstName: '', lastName: '', error: String(e.message || e) });
   }
 });
 
-
 app.get('/api/verify-email', async (req, res) => {
-  try {
-    const { token } = req.query;
-    if (!token) {
-      return res.status(400).json({ success: false, error: 'Missing token' });
-    }
+  const { token } = req.query;
 
+  if (!token) {
+    return res.status(400).send('Missing token');
+  }
+
+  try {
     const db = client.db('COP4331');
     const users = db.collection('users');
 
-    const now = new Date();
-
-    const user = await users.findOne({
-      VerificationToken: String(token),
-      VerificationExpires: { $gt: now }
-    });
-
+    const user = await users.findOne({ VerificationToken: token });
     if (!user) {
-      return res.status(400).json({ success: false, error: 'Invalid or expired token' });
+      return res.status(400).send('Invalid or already used token.');
+    }
+
+    if (user.VerificationTokenExpires && user.VerificationTokenExpires < new Date()) {
+      return res.status(400).send('Verification link has expired. Please sign up again or request a new link.');
     }
 
     await users.updateOne(
       { _id: user._id },
       {
         $set: { IsVerified: true },
-        $unset: { VerificationToken: '', VerificationExpires: '' }
+        $unset: { VerificationToken: "", VerificationTokenExpires: "" }
       }
     );
 
-    // Option 1: send JSON
-    return res.status(200).json({ success: true });
-
-    // Option 2: instead of JSON, redirect to frontend success page:
-    // return res.redirect(`${process.env.FRONTEND_BASE_URL}/verify-email-success`);
+    // Simple HTML response (you can redirect to frontend if you want)
+    return res.send(`
+      <html>
+        <body style="font-family: sans-serif; text-align: center; padding-top: 50px;">
+          <h2>Email verified ✅</h2>
+          <p>You can now close this tab and log in to Speed Dining.</p>
+        </body>
+      </html>
+    `);
   } catch (e) {
     console.error('Verify email error:', e);
-    return res.status(500).json({ success: false, error: 'Server error' });
+    return res.status(500).send('Server error while verifying email.');
   }
 });
+
 
 
 app.post('/api/searchcards', async (req, res, next) => {
