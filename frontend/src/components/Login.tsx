@@ -112,13 +112,13 @@ function SpeedDiningLogin() {
                 {/* Username Input */}
                 <div>
                   <label className="block text-gray-700 font-semibold mb-2">
-                    Username
+                    Email // Username
                   </label>
                   <input
                     type="text"
                     value={loginName}
                     onChange={handleSetLoginName}
-                    placeholder="Enter your username"
+                    placeholder="Enter your email"
                     className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-pink-500 focus:outline-none transition-colors"
                     onKeyPress={(e: any) => e.key === 'Enter' && doLogin(e)}
                   />
