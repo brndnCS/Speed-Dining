@@ -1,4 +1,18 @@
 require('dotenv').config();
+
+const nodemailer = require('nodemailer');
+const crypto = require('crypto');
+
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: parseInt(process.env.SMTP_PORT || '587', 10),
+  secure: false, // true if you use port 465
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS
+  }
+});
+
 const axios = require('axios');
 const GOOGLE_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
 
@@ -49,31 +63,72 @@ app.post('/api/addcard', async (req, res, next) => {
 });
 
 
-app.post('/api/login', async (req, res, next) => {
-    // incoming: login, password
+app.post('/api/login', async (req, res) => {
+  try {
+    // incoming: login (username), password
     // outgoing: id, firstName, lastName, error
-    var error = '';
-    const { login, password } = req.body;
-    var id = -1;
-    var fn = '';
-    var ln = '';
+    const { login, password } = req.body || {};
+
+    if (!login || !password) {
+      return res.status(400).json({
+        id: -1,
+        firstName: '',
+        lastName: '',
+        error: 'Missing username or password'
+      });
+    }
 
     const db = client.db('COP4331');
-    const results = await db.collection('users').find({ Login: login, Password: password }).toArray();
+    const users = db.collection('users');
 
-    var id = -1;
-    var fn = '';
-    var ln = '';
+    const username = String(login).trim();
+    const pwd = String(password);
 
+    // Find by username + password
+    const user = await users.findOne({
+      Login: username,
+      Password: pwd   // (plaintext for now, to match your current setup)
+    });
 
-    if (results.length > 0) {
-        id = results[0].UserID;
-        fn = results[0].fn;
-        ln = results[0].ln;
+    // No user found
+    if (!user) {
+      return res.status(401).json({
+        id: -1,
+        firstName: '',
+        lastName: '',
+        error: 'Invalid username or password'
+      });
     }
-    var ret = { id: id, firstName: fn, lastName: ln, error: '' };
-    res.status(200).json(ret);
+
+    if (user.IsVerified) {
+      return res.status(403).json({
+        id: -1,
+        firstName: '',
+        lastName: '',
+        error: 'Email not verified. Please check your inbox.'
+      });
+    }
+
+    // Successful login
+    return res.status(200).json({
+      id: user.UserID ?? -1,
+      firstName: user.FirstName || '',
+      lastName: user.LastName || '',
+      error: ''
+    });
+  } catch (e) {
+    console.error('Login error:', e);
+    return res.status(500).json({
+      id: -1,
+      firstName: '',
+      lastName: '',
+      error: 'Server error during login'
+    });
+  }
 });
+
+
+
 
 async function getNextSeq(db, name) {
   const counters = db.collection('Counters');
@@ -108,6 +163,7 @@ async function getNextSeq(db, name) {
   return r.value.seq;
 }
 
+/*
 app.post('/api/signup', async (req, res) => {
   try {
     const { login, password, firstName, lastName } = req.body || {};
@@ -152,6 +208,170 @@ app.post('/api/signup', async (req, res) => {
     return res.status(500).json({ id: -1, firstName: '', lastName: '', error: String(e.message || e) });
   }
 });
+*/
+
+app.post('/api/signup', async (req, res) => {
+  try {
+    const { login, email, password, firstName, lastName } = req.body || {};
+
+    // Basic validation
+    if (!login || !email || !password || !firstName || !lastName) {
+      return res.status(400).json({
+        id: -1,
+        firstName: '',
+        lastName: '',
+        error: 'Missing required fields'
+      });
+    }
+
+    const username = String(login).trim();
+    const emailNorm = String(email).trim().toLowerCase();
+
+    // Very simple email sanity check
+    if (!emailNorm.includes('@')) {
+      return res.status(400).json({
+        id: -1,
+        firstName: '',
+        lastName: '',
+        error: 'Invalid email address'
+      });
+    }
+
+    const db = client.db('COP4331');
+    const users = db.collection('users');
+
+    // Duplicate checks: username AND email unique
+    const existingByUsername = await users.findOne({ Login: username });
+    if (existingByUsername) {
+      return res.status(409).json({
+        id: -1,
+        firstName: '',
+        lastName: '',
+        error: 'Username already exists'
+      });
+    }
+
+    const existingByEmail = await users.findOne({ EmailLower: emailNorm });
+    if (existingByEmail) {
+      return res.status(409).json({
+        id: -1,
+        firstName: '',
+        lastName: '',
+        error: 'Email already in use'
+      });
+    }
+
+    // Get next user id
+    const nextId = await getNextSeq(db, 'UserID');
+
+    // Generate verification token + expiry
+    const verificationToken = crypto.randomBytes(32).toString('hex');
+    const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+    // User document to insert
+    const doc = {
+      UserID: nextId,
+      FirstName: String(firstName).trim(),
+      LastName: String(lastName).trim(),
+      Login: username,          // username for login
+      Email: emailNorm,         // store normalized email
+      EmailLower: emailNorm,    // duplicate-safe field
+      Password: String(password), // (plaintext for now, match your current login logic)
+      IsVerified: false,
+      VerificationToken: verificationToken,
+      VerificationExpires: verificationExpires,
+      CreatedAt: new Date()
+    };
+
+    const insertResult = await users.insertOne(doc);
+    if (!insertResult.insertedId) {
+      throw new Error('Insert failed');
+    }
+
+    // Build verify URL for frontend route
+    const baseUrl = process.env.FRONTEND_BASE_URL || 'http://localhost:5173';
+    const verifyUrl = `${baseUrl}/verify-email?token=${verificationToken}`;
+
+    // Send verification email
+    try {
+      await transporter.sendMail({
+        from: process.env.MAIL_FROM || process.env.SMTP_USER,
+        to: emailNorm,
+        subject: 'Verify your Speed Dining account',
+        html: `
+          <p>Hi ${doc.FirstName},</p>
+          <p>Thanks for signing up for <strong>Speed Dining</strong>!</p>
+          <p>Please verify your email by clicking the link below:</p>
+          <p><a href="${verifyUrl}">Verify my email</a></p>
+          <p>This link will expire in 24 hours.</p>
+          <p>If you didn't create this account, you can ignore this email.</p>
+        `
+      });
+    } catch (mailErr) {
+      console.error('Error sending verification email:', mailErr);
+      // You can decide if you want to fail signup or not. For now, we keep the account.
+    }
+
+    // Successful signup response
+    return res.status(201).json({
+      id: nextId,
+      firstName: doc.FirstName,
+      lastName: doc.LastName,
+      error: '',
+      requiresVerification: true
+    });
+  } catch (e) {
+    console.error('Signup error:', e);
+    return res.status(500).json({
+      id: -1,
+      firstName: '',
+      lastName: '',
+      error: e.message || 'Server error'
+    });
+  }
+});
+
+
+app.get('/api/verify-email', async (req, res) => {
+  try {
+    const { token } = req.query;
+    if (!token) {
+      return res.status(400).json({ success: false, error: 'Missing token' });
+    }
+
+    const db = client.db('COP4331');
+    const users = db.collection('users');
+
+    const now = new Date();
+
+    const user = await users.findOne({
+      VerificationToken: String(token),
+      VerificationExpires: { $gt: now }
+    });
+
+    if (!user) {
+      return res.status(400).json({ success: false, error: 'Invalid or expired token' });
+    }
+
+    await users.updateOne(
+      { _id: user._id },
+      {
+        $set: { IsVerified: true },
+        $unset: { VerificationToken: '', VerificationExpires: '' }
+      }
+    );
+
+    // Option 1: send JSON
+    return res.status(200).json({ success: true });
+
+    // Option 2: instead of JSON, redirect to frontend success page:
+    // return res.redirect(`${process.env.FRONTEND_BASE_URL}/verify-email-success`);
+  } catch (e) {
+    console.error('Verify email error:', e);
+    return res.status(500).json({ success: false, error: 'Server error' });
+  }
+});
+
 
 app.post('/api/searchcards', async (req, res, next) => {
     // incoming: userId, search
