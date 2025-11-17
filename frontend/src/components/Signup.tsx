@@ -6,7 +6,6 @@ function SpeedDiningSignup() {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [signupName, setSignupName] = useState('');
-  const [signupEmail, setSignupEmail] = useState('');
   const [signupPassword, setSignupPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -47,16 +46,9 @@ function SpeedDiningSignup() {
   async function doSignup(event: any): Promise<void> {
     event.preventDefault();
     setMessage('');
-    setIsSuccess(false);
-
-    if (!firstName || !lastName || !signupName || !signupEmail || !signupPassword || !confirmPassword) {
+    
+    if (!firstName || !lastName || !signupName || !signupPassword) {
       setMessage('Please fill in all fields');
-      return;
-    }
-
-    // very simple email sanity check (backend also validates)
-    if (!signupEmail.includes('@')) {
-      setMessage('Please enter a valid email address');
       return;
     }
 
@@ -71,55 +63,36 @@ function SpeedDiningSignup() {
     }
 
     setIsLoading(true);
-
-    const obj = {
+    var obj = { 
       login: signupName,
-      email: signupEmail,
       password: signupPassword,
       firstName: firstName,
       lastName: lastName
     };
-    const js = JSON.stringify(obj);
-
+    var js = JSON.stringify(obj);
+    
     try {
-      const response = await fetch('http://localhost:5001/api/signup', {
-        method: 'POST',
-        body: js,
-        headers: { 'Content-Type': 'application/json' }
-      });
-
-      const res = await response.json();
-
-      if (!response.ok || res.id <= 0 || res.error) {
-        // show backend error messages like "Username already exists", "Email already in use", etc.
-        setIsSuccess(false);
-        setMessage(res.error || `Signup failed (status ${response.status})`);
-        return;
+      const response = await fetch('http://localhost:5001/api/signup',
+        { method: 'POST', body: js, headers: { 'Content-Type': 'application/json' } });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-
-      // If we reach here, signup succeeded
-      if (res.requiresVerification) {
-        setIsSuccess(true);
-        setMessage(
-          'Account created! Please check your email and click the verification link to activate your account.'
-        );
+      
+      var res = await response.json();
+      
+      if (res.id <= 0 || res.error) {
+        setMessage(res.error || 'Signup failed');
       } else {
-        // Fallback: if backend ever skips verification flag
         setIsSuccess(true);
-        setMessage('Account created successfully!');
+        setMessage('Account created successfully! Check your email for your verification link...');
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 2000);
       }
-
-      // Optional: clear form fields on success
-      setFirstName('');
-      setLastName('');
-      setSignupName('');
-      setSignupEmail('');
-      setSignupPassword('');
-      setConfirmPassword('');
-    } catch (error) {
-      console.error(error);
-      setIsSuccess(false);
+    } catch (error: any) {
       setMessage('Connection error. Please try again.');
+      console.error(error);
     } finally {
       setIsLoading(false);
     }
@@ -135,10 +108,6 @@ function SpeedDiningSignup() {
 
   function handleSetSignupName(e: any): void {
     setSignupName(e.target.value);
-  }
-
-  function handleSetSignupEmail(e: any): void {
-    setSignupEmail(e.target.value);
   }
 
   function handleSetSignupPassword(e: any): void {
@@ -164,22 +133,21 @@ function SpeedDiningSignup() {
         {/* Signup Card */}
         <div className="w-full max-w-lg">
           <div className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl overflow-hidden transform transition-all duration-300 hover:scale-105">
-            {/* Header */}
-            <div className="bg-gradient-to-r from-pink-500 to-red-500 p-8 text-center">
-              <div className="flex justify-center mb-4">
-                <img
-                  src="/images/speeddininglogo.png"
-                  alt="Speed Dining Logo"
-                  className="h-[150px] w-[150px] object-contain ml-5"
-                />
-              </div>
-              <h1 className="text-4xl font-bold text-white mb-2">Join Speed Dining</h1>
-              <p className="text-pink-100">Create your account and start swiping!</p>
+          {/* Header */}
+          <div className="bg-gradient-to-r from-pink-500 to-red-500 p-8 text-center">
+            <div className="flex justify-center mb-4">
+              <img 
+                src="/images/speeddininglogo.png" 
+                alt="Speed Dining Logo" 
+                className="h-[150px] w-[150px] object-contain ml-5" 
+              />
             </div>
-
+            <h1 className="text-4xl font-bold text-white mb-2">Join Speed Dining</h1>
+            <p className="text-pink-100">Create your account and start swiping!</p>
+          </div>
             {/* Form */}
             <div className="p-8">
-              <form className="space-y-5" onSubmit={doSignup}>
+              <div className="space-y-5">
                 {/* First Name Input */}
                 <div>
                   <label className="block text-gray-700 font-semibold mb-2">
@@ -208,33 +176,16 @@ function SpeedDiningSignup() {
                   />
                 </div>
 
-                {/* Email Input */}
+                {/* Username Input */}
                 <div>
                   <label className="block text-gray-700 font-semibold mb-2">
                     Email
                   </label>
                   <input
-                    type="email"
-                    value={signupEmail}
-                    onChange={handleSetSignupEmail}
-                    placeholder="Enter your email"
-                    className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-pink-500 focus:outline-none transition-colors"
-                  />
-                  <p className="mt-1 text-xs text-gray-500">
-                    We&apos;ll send a verification link to this address.
-                  </p>
-                </div>
-
-                {/* Username Input */}
-                <div>
-                  <label className="block text-gray-700 font-semibold mb-2">
-                    Username
-                  </label>
-                  <input
                     type="text"
                     value={signupName}
                     onChange={handleSetSignupName}
-                    placeholder="Choose a username"
+                    placeholder="Enter your email"
                     className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-pink-500 focus:outline-none transition-colors"
                   />
                 </div>
@@ -270,18 +221,14 @@ function SpeedDiningSignup() {
 
                 {/* Error/Success Message */}
                 {message && (
-                  <div
-                    className={`border-l-4 p-4 rounded ${
-                      isSuccess
-                        ? 'bg-green-50 border-green-500'
-                        : 'bg-red-50 border-red-500'
-                    }`}
-                  >
-                    <p
-                      className={`text-sm ${
-                        isSuccess ? 'text-green-700' : 'text-red-700'
-                      }`}
-                    >
+                  <div className={`border-l-4 p-4 rounded ${
+                    isSuccess 
+                      ? 'bg-green-50 border-green-500' 
+                      : 'bg-red-50 border-red-500'
+                  }`}>
+                    <p className={`text-sm ${
+                      isSuccess ? 'text-green-700' : 'text-red-700'
+                    }`}>
                       {message}
                     </p>
                   </div>
@@ -289,42 +236,31 @@ function SpeedDiningSignup() {
 
                 {/* Signup Button */}
                 <button
-                  type="submit"
+                  type="button"
+                  onClick={doSignup}
                   disabled={isLoading}
                   className="w-full bg-gradient-to-r from-pink-500 to-red-500 text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                 >
                   {isLoading ? (
                     <span className="flex items-center justify-center">
                       <svg className="animate-spin h-5 w-5 mr-3" viewBox="0 0 24 24">
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                          fill="none"
-                        ></circle>
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                        ></path>
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                       </svg>
                       Creating account...
                     </span>
                   ) : (
-                    'Create Account!'
+                    "Create Account!"
                   )}
                 </button>
-              </form>
+              </div>
 
               {/* Additional Links */}
               <div className="mt-6 text-center">
                 <div className="text-gray-600 text-sm">
                   Already have an account?{' '}
-                  <button
-                    onClick={() => (window.location.href = '/')}
+                  <button 
+                    onClick={() => window.location.href = '/'}
                     className="text-pink-500 hover:text-pink-600 font-semibold transition-colors"
                   >
                     Log in
