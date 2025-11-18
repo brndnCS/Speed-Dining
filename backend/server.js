@@ -8,10 +8,15 @@ const app = express();
 const MongoClient = require('mongodb').MongoClient;
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
-
-const url = 'mongodb+srv://sparshpandey06_db_user:q56faVzHcdrE9a0F@cluster0.ody1sc1.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0'
+const bcrypt = require("bcryptjs");
+const url = process.env.MONGODB_KEY
 const client = new MongoClient(url);
-client.connect();
+
+async function start() {
+  await client.connect();
+  app.listen(5001);
+}
+start();
 
 const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:5001';
 
@@ -68,24 +73,6 @@ app.use((req, res, next) => {
     next();
 });
 
-app.post('/api/addcard', async (req, res, next) => {
-    // incoming: userId, color
-    // outgoing: error
-    const { userId, card } = req.body;
-    const newCard = { Card: card, UserId: userId };
-    var error = '';
-    try {
-        const db = client.db('COP4331Cards');
-        const result = db.collection('Cards').insertOne(newCard);
-    }
-    catch (e) {
-        error = e.toString();
-    }
-    cardList.push(card);
-    var ret = { error: error };
-    res.status(200).json(ret);
-});
-
 
 app.post('/api/login', async (req, res, next) => {
   // incoming: login, password
@@ -94,20 +81,31 @@ app.post('/api/login', async (req, res, next) => {
   let error = '';
 
   try {
-    const db = client.db('COP4331');
-    const users = db.collection('users');
+    const db = client.db('SpeedDining');
+    const users = db.collection('Users');
 
     const norm = String(login).trim().toLowerCase();
 
     // look up by LoginLower or Login to be safe
     const user = await users.findOne({
       $or: [
-        { LoginLower: norm, Password: password },
-        { Login: String(login).trim(), Password: password }
+        { LoginLower: norm },
+        { Login: String(login).trim() }
       ]
     });
 
     if (!user) {
+      return res.status(401).json({
+        id: -1,
+        firstName: '',
+        lastName: '',
+        error: 'Invalid login or password'
+      });
+    }
+  
+    const match = await bcrypt.compare(password, user.Password);
+
+    if(!match) {
       return res.status(401).json({
         id: -1,
         firstName: '',
@@ -180,52 +178,6 @@ async function getNextSeq(db, name) {
   return r.value.seq;
 }
 
-/*
-app.post('/api/signup', async (req, res) => {
-  try {
-    const { login, password, firstName, lastName } = req.body || {};
-    if (!login || !password || !firstName || !lastName) {
-      return res.status(400).json({ id: -1, firstName: '', lastName: '', error: 'Missing fields' });
-    }
-
-    const db = client.db('COP4331');
-    const users = db.collection('users');
-
-    const norm = String(login).trim().toLowerCase();
-
-    // duplicate check (prefer LoginLower if you have it)
-    let existing = await users.findOne({ LoginLower: norm });
-    if (!existing) existing = await users.findOne({ Login: String(login).trim() });
-    if (existing) {
-      return res.status(409).json({ id: -1, firstName: '', lastName: '', error: 'User already exists' });
-    }
-
-    const nextId = await getNextSeq(db, 'UserID');
-
-    const doc = {
-      UserID: nextId,
-      FirstName: String(firstName).trim(),
-      LastName: String(lastName).trim(),
-      Login: String(login).trim(),
-      LoginLower: norm,
-      Password: String(password) // plaintext for now to match your current /api/login
-    };
-
-    const r = await users.insertOne(doc);
-    if (!r.insertedId) throw new Error('Insert failed');
-
-    return res.status(201).json({
-      id: nextId,
-      firstName: doc.FirstName,
-      lastName: doc.LastName,
-      error: ''
-    });
-  } catch (e) {
-    console.error('Signup error:', e);
-    return res.status(500).json({ id: -1, firstName: '', lastName: '', error: String(e.message || e) });
-  }
-});
-*/
 app.post('/api/signup', async (req, res) => {
   try {
     const { login, password, firstName, lastName } = req.body || {};
@@ -236,8 +188,8 @@ app.post('/api/signup', async (req, res) => {
     // Ideally, login is an email. You can later rename this to Email in DB/UI.
     const norm = String(login).trim().toLowerCase();
 
-    const db = client.db('COP4331');
-    const users = db.collection('users');
+    const db = client.db('SpeedDining');
+    const users = db.collection('Users');
 
     // duplicate check (prefer LoginLower if you have it)
     let existing = await users.findOne({ LoginLower: norm });
@@ -251,6 +203,8 @@ app.post('/api/signup', async (req, res) => {
     // generate email verification token
     const verificationToken = crypto.randomBytes(32).toString('hex');
     const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+  
+    const hashedPassword = bcrypt.hashSync(password, 10);
 
     const doc = {
       UserID: nextId,
@@ -258,7 +212,7 @@ app.post('/api/signup', async (req, res) => {
       LastName: String(lastName).trim(),
       Login: String(login).trim(),
       LoginLower: norm,
-      Password: String(password), // plaintext for now (same as your login)
+      Password: hashedPassword, 
       IsVerified: false,
       VerificationToken: verificationToken,
       VerificationTokenExpires: verificationExpires
@@ -301,8 +255,8 @@ app.get('/api/verify-email', async (req, res) => {
   }
 
   try {
-    const db = client.db('COP4331');
-    const users = db.collection('users');
+    const db = client.db('SpeedDining');
+    const users = db.collection('Users');
 
     const user = await users.findOne({ VerificationToken: token });
     if (!user) {
@@ -337,23 +291,6 @@ app.get('/api/verify-email', async (req, res) => {
 });
 
 
-
-app.post('/api/searchcards', async (req, res, next) => {
-    // incoming: userId, search
-    // outgoing: results[], error
-    var error = '';
-    const { userId, search } = req.body;
-    var _search = search.trim();
-    const db = client.db('COP4331Cards');
-    const results = await db.collection('Cards').find({ "Card": { $regex: _search + '.*', $options: 'i' } }).toArray();
-    var _ret = [];
-    for (var i = 0; i < results.length; i++) {
-        _ret.push(results[i].Card);
-    }
-    var ret = { results: _ret, error: error };
-    res.status(200).json(ret);
-});
-
 //restaurant recommendations
 app.post('/api/recommendations', async (req, res, next) => {
     //incoming: latitude, longitude, distance, cuisine, price
@@ -362,7 +299,7 @@ app.post('/api/recommendations', async (req, res, next) => {
     // 1. Get all values from the body, including new filters
     const { latitude, longitude, distance, cuisine, price } = req.body;
     
-    if (!latitude || !longitude) {
+    if (latitude == null || longitude == null) {
         return res.status(400).json({ error: 'Latitude and longitude are required.' });
     }
 
@@ -412,7 +349,33 @@ app.post('/api/recommendations', async (req, res, next) => {
     }
 });
 
-//save a restaurant aka if yes is clicked
+app.post("/api/rateRestaurant", async (req, res) => {
+  try {
+    const { userId, placeId, rating } = req.body;
+
+    if (!userId || !placeId || rating == null) {
+      return res.status(400).json({ error: "Missing fields" });
+    }
+
+    const db = client.db("SpeedDining");
+    const savedRestaurants = db.collection("SavedRestaurants");
+
+    const result = await savedRestaurants.updateOne(
+      { UserId: userId, PlaceId: placeId },
+      { $set: { UserRating: rating } }
+    );
+
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ error: "Restaurant not found for this user" });
+    }
+
+    return res.status(200).json({ error: "" });
+  } catch (e) {
+    console.error("Rating error:", e);
+    return res.status(500).json({ error: "Server error while rating" });
+  }
+});
+
 app.post('/api/saveRestaurant', async (req, res, next) => {
     //incoming: userId, restaurant (object)
     //outgoing: { id: newDocumentId } or { error: ... }
@@ -447,6 +410,7 @@ app.post('/api/saveRestaurant', async (req, res, next) => {
     }
 });
 
+
 //get the user's saved list
 app.post('/api/myRestaurants', async (req, res, next) => {
     //incoming: userId
@@ -467,6 +431,8 @@ app.post('/api/myRestaurants', async (req, res, next) => {
         res.status(500).json({ error: error });
     }
 });
+
+
 
 // Get a restaurant photo
 app.get('/api/photo', (req, res, next) => {
@@ -489,4 +455,3 @@ app.get('/api/photo', (req, res, next) => {
     res.redirect(302, photoUrl);
 });
 
-app.listen(5001); // start Node + Express server on port 5000
