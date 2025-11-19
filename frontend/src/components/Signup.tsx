@@ -72,7 +72,7 @@ function SpeedDiningSignup() {
     var js = JSON.stringify(obj);
     
     try {
-      const response = await fetch('http://localhost:5001/api/signup',
+      const response = await fetch('http://127.0.0.1:5001/api/signup',
         { method: 'POST', body: js, headers: { 'Content-Type': 'application/json' } });
       
       if (!response.ok) {

@@ -9,16 +9,27 @@ const MongoClient = require('mongodb').MongoClient;
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const bcrypt = require("bcryptjs");
-const url = process.env.MONGODB_KEY
+
+const url = process.env.MONGODB_KEY;
 const client = new MongoClient(url);
 
 async function start() {
-  await client.connect();
-  app.listen(5001);
+  try {
+    console.log("Attempting to connect to MongoDB...");
+    await client.connect();
+    console.log("✅ Connected to MongoDB successfully!");
+
+    app.listen(5001, '0.0.0.0', () => {
+      console.log("🚀 Server is running on http://127.0.0.1:5001");
+    });
+  } catch (error) {
+    console.error("❌ Error connecting to MongoDB:", error);
+    // Process will stay alive but server won't be listening
+  }
 }
 start();
 
-const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:5001';
+const API_BASE_URL = process.env.API_BASE_URL || 'http://127.0.0.1:5001';
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
@@ -54,23 +65,13 @@ async function sendVerificationEmail(userEmail, firstName, token) {
 }
 
 
+// 1. Enable CORS (Allows both your Mac and friend's Windows to connect)
 app.use(cors());
-// app.use(bodyParser.json());
 app.use(express.json());
-app.use((req, res, next) => {
-    app.get("/api/ping", (req, res, next) => {
-        res.status(200).json({ message: "Hello World" });
-    });
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader(
-        'Access-Control-Allow-Headers',
-        'Origin, X-Requested-With, Content-Type, Accept, Authorization'
-    );
-    res.setHeader(
-        'Access-Control-Allow-Methods',
-        'GET, POST, PATCH, DELETE, OPTIONS'
-    );
-    next();
+
+// 2. Define the Ping route correctly (outside the middleware loop)
+app.get("/api/ping", (req, res) => {
+    res.status(200).json({ message: "Hello World" });
 });
 
 
@@ -432,7 +433,35 @@ app.post('/api/myRestaurants', async (req, res, next) => {
     }
 });
 
+// Delete a restaurant from the user's list
+app.post('/api/deleteRestaurant', async (req, res, next) => {
+    // incoming: userId, placeId
+    // outgoing: error
+    
+    const { userId, placeId } = req.body;
+    var error = '';
 
+    try {
+        const db = client.db('SpeedDining');
+        // Delete the specific restaurant for this user
+        const result = await db.collection('SavedRestaurants').deleteOne({ 
+            UserId: userId, 
+            PlaceId: placeId 
+        });
+
+        if (result.deletedCount === 0) {
+            // If nothing was deleted, maybe it wasn't found?
+            // We typically still treat this as a "success" (idempotent) or return a specific message
+            console.log("No document matches the provided userId and placeId.");
+        }
+
+        res.status(200).json({ error: '' });
+
+    } catch (e) {
+        error = e.toString();
+        res.status(500).json({ error: error });
+    }
+});
 
 // Get a restaurant photo
 app.get('/api/photo', (req, res, next) => {

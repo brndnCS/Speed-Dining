@@ -19,7 +19,7 @@ async function start() {
 }
 start();
 
-const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:5001';
+const API_BASE_URL = process.env.API_BASE_URL || 'hhttp://127.0.0.1:5001';
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,

@@ -43,7 +43,7 @@ function RecommendationUI() {
             };
 
             // 2. Send the new body
-            const response = await fetch('http://localhost:5001/api/recommendations', {
+            const response = await fetch('http://127.0.0.1:5001/api/recommendations', {
               method: 'POST',
               body: JSON.stringify(body), // Send all filters
               headers: { 'Content-Type': 'application/json' }
@@ -82,7 +82,7 @@ function RecommendationUI() {
         const currentRestaurant = recommendations[currentIndex];
         
         try {
-          const response = await fetch('http://localhost:5001/api/saveRestaurant', {
+          const response = await fetch('http://127.0.0.1:5001/api/saveRestaurant', {
             method: 'POST',
             body: JSON.stringify({ userId: userId, restaurant: currentRestaurant }),
             headers: { 'Content-Type': 'application/json' }
@@ -126,7 +126,7 @@ function RecommendationUI() {
   // --- View My List ---
   const fetchMyList = async () => {
     try {
-      const response = await fetch('http://localhost:5001/api/myRestaurants', {
+      const response = await fetch('http://127.0.0.1:5001/api/myRestaurants', {
         method: 'POST',
         body: JSON.stringify({ userId: userId }),
         headers: { 'Content-Type': 'application/json' }
@@ -151,7 +151,7 @@ if (viewingList) {
     }
 
     try {
-      const response = await fetch('http://localhost:5001/api/deleteRestaurant', {
+      const response = await fetch('http://127.0.0.1:5001/api/deleteRestaurant', {
         method: 'POST',
         body: JSON.stringify({ userId: userId, placeId: placeId }),
         headers: { 'Content-Type': 'application/json' }
@@ -171,7 +171,7 @@ if (viewingList) {
 
   const handleRateRestaurant = async (placeId: string, rating: number) => {
     try {
-      const response = await fetch('http://localhost:5001/api/rateRestaurant', {
+      const response = await fetch('http://127.0.0.1:5001/api/rateRestaurant', {
         method: 'POST',
         body: JSON.stringify({ userId: userId, placeId: placeId, rating: rating }),
         headers: { 'Content-Type': 'application/json' }
@@ -261,10 +261,10 @@ if (viewingList) {
                 <div className="flex justify-between items-start mb-4">
                   <div className="flex-1">
                     <h3 className="text-2xl font-bold text-gray-800 mb-2">{item.Name}</h3>
-                    <p className="text-gray-600 mb-1">📍 {item.Vicinity}</p>
+                    <p className="text-gray-600 mb-1">⚲ {item.Vicinity}</p>
                     {item.Rating && (
                       <p className="text-gray-700 mb-3">
-                        ⭐ Google Rating: <span className="font-semibold">{item.Rating}</span>
+                        ★ Google Rating: <span className="font-semibold">{item.Rating}</span>
                       </p>
                     )}
                   </div>
@@ -336,7 +336,7 @@ if (viewingList) {
                   onClick={fetchMyList}
                   className="bg-gradient-to-r from-pink-500 to-red-500 text-white font-bold py-3 px-8 rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition-all duration-200"
                 >
-                  📋 View My Saved List
+                 ☰ View My Saved List
                 </button>
               </div>
 
@@ -455,7 +455,7 @@ if (viewingList) {
                   {/* Restaurant Image */}
                   {currentRestaurant.photos && currentRestaurant.photos.length > 0 ? (
                     <img
-                      src={`http://localhost:5001/api/photo?ref=${currentRestaurant.photos[0].photo_reference}`}
+                      src={`http://127.0.0.1:5001/api/photo?ref=${currentRestaurant.photos[0].photo_reference}`}
                       alt={currentRestaurant.name}
                       className="h-64 w-full object-cover" // object-cover ensures the image fills the space
                     />
@@ -472,10 +472,10 @@ if (viewingList) {
                       {currentRestaurant.name}
                     </h3>
                     <p className="text-gray-700 mb-4">
-                      📍 {currentRestaurant.vicinity}
+                      ⚲ {currentRestaurant.vicinity}
                     </p>
                     <div className="flex items-center gap-2 mb-6">
-                      <span className="text-2xl">⭐</span>
+                      <span className="text-2xl">★</span>
                       <span className="text-xl font-semibold text-gray-800">
                         {currentRestaurant.rating}
                       </span>
