@@ -322,67 +322,7 @@ app.get('/api/verify-email', async (req, res) => {
   }
 });
 
-
-//restaurant recommendations
 /*
-app.post('/api/recommendations', async (req, res, next) => {
-    //incoming: latitude, longitude, distance, cuisine, price
-    //outgoing: array of restaurant results or error
-    
-    // 1. Get all values from the body, including new filters
-    const { latitude, longitude, distance, cuisine, price } = req.body;
-    
-    if (latitude == null || longitude == null) {
-        return res.status(400).json({ error: 'Latitude and longitude are required.' });
-    }
-
-    // 2. Set a default radius (in meters) if distance isn't provided
-    //    We use parseInt to make sure it's a number.
-    const radius = distance ? parseInt(distance, 10) : 5000; // 5000m (5km) default
-
-    // 3. Dynamically build the URL
-    let url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${latitude},${longitude}&radius=${radius}&type=restaurant&key=${GOOGLE_API_KEY}`;
-
-    // 4. Add filters to the URL if they were provided
-    if (cuisine) {
-        // Use the 'keyword' param for cuisine types like "American"
-        url += `&keyword=${encodeURIComponent(cuisine)}`;
-    }
-
-    if (price) {
-        // Assuming price is a number string: "1", "2", "3", or "4"
-        const priceLevel = parseInt(price, 10);
-        
-        if (priceLevel <= 2) {
-            // maxprice=1 is Budget, maxprice=2 is Moderate
-            url += `&maxprice=${priceLevel}`;
-        } else {
-            // minprice=3 is Upscale, minprice=4 is Very Upscale
-            url += `&minprice=${priceLevel}`;
-        }
-    }
-
-    console.log(`Fetching from Google API: ${url}`); // Good for debugging
-
-    try {
-        const response = await axios.get(url);
-
-        //shuffle results
-        let results = response.data.results || [];
-        for (let i = results.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [results[i], results[j]] = [results[j], results[i]];
-        }
-        
-        res.status(200).json({ results: results });
-
-    } catch (e) {
-        console.error('Google API error:', e.message);
-        res.status(500).json({ error: 'Failed to fetch from Google API' });
-    }
-});
-
-*/
 app.post('/api/recommendations', async (req, res, next) => {
     const { userId, latitude, longitude, distance, cuisine, price } = req.body;
     
@@ -496,7 +436,243 @@ app.post('/api/recommendations', async (req, res, next) => {
         res.status(500).json({ error: 'Failed to fetch from Google API' });
     }
 });
+*/
 
+// Add this RIGHT AFTER you get the Google results and RIGHT BEFORE filtering
+// This will show us EXACTLY what's happening
+
+app.post('/api/recommendations', async (req, res, next) => {
+    const { userId, latitude, longitude, distance, cuisine, price } = req.body;
+    
+    if (latitude == null || longitude == null) {
+        return res.status(400).json({ error: 'Latitude and longitude are required.' });
+    }
+
+    const radius = distance ? parseInt(distance, 10) : 5000;
+
+    let url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${latitude},${longitude}&radius=${radius}&type=restaurant&key=${GOOGLE_API_KEY}`;
+
+    if (cuisine) url += `&keyword=${encodeURIComponent(cuisine)}`;
+
+    if (price) {
+        const priceLevel = parseInt(price, 10);
+        if (priceLevel <= 2) url += `&maxprice=${priceLevel}`;
+        else url += `&minprice=${priceLevel}`;
+    }
+
+    console.log(`Fetching from Google API: ${url}`);
+
+    try {
+        // 1. Fetch Google results
+        const response = await axios.get(url);
+        let results = response.data.results || [];
+
+        // 2. Compute distance for each result
+        const addDistance = (lat1, lon1, lat2, lon2) => {
+            const R = 6371000;
+            const dLat = (lat2 - lat1) * Math.PI/180;
+            const dLon = (lon2 - lon1) * Math.PI/180;
+            const a =
+                Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) *
+                Math.sin(dLon/2) * Math.sin(dLon/2);
+            return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
+        };
+
+        results = results.map(r => ({
+            ...r,
+            distance: addDistance(
+                latitude,
+                longitude,
+                r.geometry.location.lat,
+                r.geometry.location.lng
+            )
+        }));
+
+        // 3. Shuffle results
+        for (let i = results.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [results[i], results[j]] = [results[j], results[i]];
+        }
+
+        // If no userId → return random results
+        if (!userId) return res.status(200).json({ results });
+
+        const db = client.db('SpeedDining');
+
+    // ... your existing code up to getting results from Google ...
+    
+    // RIGHT HERE - after you have 'results' from Google
+    
+    if (userId) {
+        const db = client.db('SpeedDining');
+        
+        console.log("\n========================================");
+        console.log("🔍 DUPLICATE DEBUGGING");
+        console.log("========================================");
+        
+        // 1. Check what we're querying with
+        console.log("\n1. Query Info:");
+        console.log("   userId:", userId, "(type:", typeof userId, ")");
+        
+        // 2. Get saved restaurants
+        const savedRestaurants = await db.collection('SavedRestaurants')
+            .find({ UserId: userId })
+            .toArray();
+        
+        console.log("\n2. Saved Restaurants in DB:");
+        console.log("   Total saved:", savedRestaurants.length);
+        
+        if (savedRestaurants.length > 0) {
+            console.log("\n   First saved restaurant:");
+            const first = savedRestaurants[0];
+            console.log("     UserId:", first.UserId, "(type:", typeof first.UserId, ")");
+            console.log("     PlaceId:", first.PlaceId);
+            console.log("     Name:", first.Name);
+            
+            console.log("\n   All saved PlaceIds:");
+            savedRestaurants.forEach((r, i) => {
+                console.log(`     ${i + 1}. "${r.PlaceId}" - ${r.Name}`);
+            });
+        }
+        
+        // 3. Check Google results
+        console.log("\n3. Google Results:");
+        console.log("   Total from Google:", results.length);
+        console.log("\n   First 5 place_ids from Google:");
+        results.slice(0, 5).forEach((r, i) => {
+            console.log(`     ${i + 1}. "${r.place_id}" - ${r.name}`);
+        });
+        
+        // 4. Build the savedSet
+        const savedIds = await db.collection('SavedRestaurants')
+            .find({ UserId: userId })
+            .project({ PlaceId: 1, _id: 0 })
+            .toArray();
+        
+        const savedSet = new Set(savedIds.map(r => r.PlaceId));
+        
+        console.log("\n4. Saved Set:");
+        console.log("   Set size:", savedSet.size);
+        console.log("   Set contents (first 5):");
+        Array.from(savedSet).slice(0, 5).forEach((id, i) => {
+            console.log(`     ${i + 1}. "${id}" (type: ${typeof id})`);
+        });
+        
+        // 5. Manually check for matches
+        console.log("\n5. Manual Match Check:");
+        const manualMatches = [];
+        results.forEach(googleResult => {
+            savedRestaurants.forEach(savedR => {
+                if (googleResult.place_id === savedR.PlaceId) {
+                    manualMatches.push({
+                        name: googleResult.name,
+                        google_id: googleResult.place_id,
+                        saved_id: savedR.PlaceId,
+                        exactMatch: googleResult.place_id === savedR.PlaceId,
+                        tripleEquals: googleResult.place_id === savedR.PlaceId,
+                        typeofGoogle: typeof googleResult.place_id,
+                        typeofSaved: typeof savedR.PlaceId
+                    });
+                }
+            });
+        });
+        
+        console.log("   Found", manualMatches.length, "matches using === comparison");
+        if (manualMatches.length > 0) {
+            console.log("\n   Match details:");
+            manualMatches.forEach((m, i) => {
+                console.log(`     ${i + 1}. ${m.name}`);
+                console.log(`        Google ID: "${m.google_id}" (${m.typeofGoogle})`);
+                console.log(`        Saved ID:  "${m.saved_id}" (${m.typeofSaved})`);
+                console.log(`        Match: ${m.exactMatch}`);
+            });
+        }
+        
+        // 6. Test the Set.has() method
+        console.log("\n6. Testing Set.has() method:");
+        if (manualMatches.length > 0) {
+            const testId = manualMatches[0].google_id;
+            console.log(`   Testing with: "${testId}"`);
+            console.log(`   savedSet.has("${testId}"):`, savedSet.has(testId));
+            console.log(`   Is it in the set array?:`, Array.from(savedSet).includes(testId));
+        }
+        
+        // 7. Do the actual filtering
+        console.log("\n7. Filtering:");
+        const beforeFilter = results.length;
+        results = results.filter(r => {
+            const shouldKeep = !savedSet.has(r.place_id);
+            return shouldKeep;
+        });
+        const afterFilter = results.length;
+        
+        console.log(`   Before: ${beforeFilter} restaurants`);
+        console.log(`   After:  ${afterFilter} restaurants`);
+        console.log(`   Removed: ${beforeFilter - afterFilter} restaurants`);
+        
+        // 8. Check if any duplicates slipped through
+        console.log("\n8. Checking for duplicates that slipped through:");
+        const slippedThrough = results.filter(r => {
+            return savedRestaurants.some(saved => saved.PlaceId === r.place_id);
+        });
+        
+        if (slippedThrough.length > 0) {
+            console.log(`   ❌ PROBLEM! ${slippedThrough.length} saved restaurants are STILL in results:`);
+            slippedThrough.forEach(r => {
+                console.log(`      - ${r.name}`);
+                console.log(`        place_id: "${r.place_id}"`);
+                const saved = savedRestaurants.find(s => s.PlaceId === r.place_id);
+                console.log(`        Saved PlaceId: "${saved.PlaceId}"`);
+                console.log(`        Are they equal? ${r.place_id === saved.PlaceId}`);
+                console.log(`        savedSet.has()? ${savedSet.has(r.place_id)}`);
+            });
+        } else {
+            console.log("   ✅ SUCCESS! All saved restaurants were filtered out");
+        }
+        
+        console.log("\n========================================\n");
+    }
+    
+    // ... continue with your existing shuffle and ML code ...
+
+            if (userRest.length === 0) return res.status(200).json({ results });
+
+        // 5. Train NB
+        const nb = new NaiveBayes();
+        userRest.forEach(r => nb.train({
+            name: r.Name,
+            rating: r.Rating,
+            types: r.Types,
+            price: r.PriceLevel,
+            distance: r.Distance,
+            openNow: r.OpenNow,
+            userRating: r.UserRating
+        }));
+
+        // 6. Score new Google results
+        const scored = results.map(r => ({
+            ...r,
+            nbScore: nb.predict({
+                name: r.name,
+                rating: r.rating,
+                types: r.types,
+                price: r.price_level,
+                distance: r.distance,
+                openNow: r.opening_hours?.open_now ?? null
+            })
+        }));
+
+        // 7. Sort by NB score
+        scored.sort((a, b) => b.nbScore - a.nbScore);
+
+        return res.status(200).json({ results: scored });
+
+    } catch (e) {
+        console.error('Google API error:', e.message);
+        res.status(500).json({ error: 'Failed to fetch from Google API' });
+    }
+});
 
 
 app.post("/api/rateRestaurant", async (req, res) => {
@@ -586,6 +762,8 @@ app.post('/api/myRestaurants', async (req, res, next) => {
     }
 });
 
+// Replace your saved-based-recommendation endpoint with this version for debugging:
+
 app.post('/api/saved-based-recommendation', async (req, res) => {
     const { userId, latitude, longitude } = req.body;
 
@@ -596,16 +774,44 @@ app.post('/api/saved-based-recommendation', async (req, res) => {
     try {
         const db = client.db("SpeedDining");
 
+        // DEBUG: Check ALL saved restaurants first
+        const allSaved = await db.collection("SavedRestaurants")
+            .find({ UserId: userId })
+            .toArray();
+        
+        console.log("=== DEBUGGING SAVED-BASED RECOMMENDATIONS ===");
+        console.log("userId:", userId);
+        console.log("Total saved restaurants:", allSaved.length);
+        console.log("\nAll restaurants for this user:");
+        allSaved.forEach((r, idx) => {
+            console.log(`  ${idx + 1}. ${r.Name}`);
+            console.log(`     PlaceId: ${r.PlaceId}`);
+            console.log(`     UserRating: ${r.UserRating} (type: ${typeof r.UserRating})`);
+            console.log(`     Is "pending"?: ${r.UserRating === "pending"}`);
+        });
+
         // 1. Get user's **rated** restaurants
         const userRest = await db.collection("SavedRestaurants")
             .find({ UserId: userId, UserRating: { $ne: "pending" } })
             .toArray();
 
-        if (userRest.length < 8) {
+        console.log("\nRated restaurants (UserRating != 'pending'):", userRest.length);
+        console.log("Rated restaurant details:");
+        userRest.forEach((r, idx) => {
+            console.log(`  ${idx + 1}. ${r.Name} - Rating: ${r.UserRating}`);
+        });
+        
+        if (userRest.length < 3) {
+            console.log("\n❌ ERROR: Not enough rated restaurants");
+            console.log(`   Found: ${userRest.length}, Need: at least 3`);
+            console.log("===========================================\n");
             return res.status(200).json({ 
                 error: "Not enough rated restaurants to generate personalized suggestions." 
             });
         }
+        
+        console.log("\n✅ SUCCESS: Enough rated restaurants found");
+        console.log("===========================================\n");
 
         // 2. Also get ALL saved restaurants → to prevent recommending duplicates
         const savedIds = await db.collection("SavedRestaurants")
@@ -686,6 +892,9 @@ app.post('/api/saved-based-recommendation', async (req, res) => {
             })
         }));
 
+        // Sort by score descending
+        scored.sort((a, b) => b.nbScore - a.nbScore);
+
         // return top 3 (or fewer if less than 3 scored items)
         const recommended = scored.slice(0, 3);
 
@@ -697,7 +906,6 @@ app.post('/api/saved-based-recommendation', async (req, res) => {
         res.status(500).json({ error: "Failed to generate saved-based recommendation." });
     }
 });
-
 
 // Get a restaurant photo
 app.get('/api/photo', async (req, res) => {
