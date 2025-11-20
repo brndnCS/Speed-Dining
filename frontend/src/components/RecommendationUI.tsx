@@ -53,28 +53,47 @@ function RecommendationUI() {
     }
   };
 
-  const fetchAiRecommendations = async () => {
-    // We fetch a list of recommended restaurants based on the user's past ratings.
-    try {
-      const response = await fetch('http://localhost:5001/api/savedRecommendations', {
-        method: 'POST',
-        body: JSON.stringify({ userId: userId }),
-        headers: { 'Content-Type': 'application/json' }
-      });
-      let res = await response.json();
-      
-      if (res.recommended && Array.isArray(res.recommended)) {
-        // Sort by nbScore descending to show the most likely matches first
-        const sortedRecommendations = res.recommended.sort((a: any, b: any) => b.nbScore - a.nbScore);
-        setAiRecommendations(sortedRecommendations);
-      } else {
-        setAiRecommendations([]);
-      }
-    } catch (e) {
-      console.error("Error fetching AI recommendations:", e);
+const fetchAiRecommendations = async () => {
+  // We fetch a list of recommended restaurants based on the user's past ratings.
+  
+  if (!("geolocation" in navigator)) {
+    console.error("Geolocation not supported");
+    setAiRecommendations([]);
+    return;
+  }
+
+  try {
+    // Get the user's current location first
+    const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(resolve, reject);
+    });
+
+    const { latitude, longitude } = position.coords;
+
+    const response = await fetch('http://localhost:5001/api/saved-based-recommendation', {
+      method: 'POST',
+      body: JSON.stringify({ 
+        userId: userId,
+        latitude: latitude,    // ✅ Now included
+        longitude: longitude   // ✅ Now included
+      }),
+      headers: { 'Content-Type': 'application/json' }
+    });
+    
+    let res = await response.json();
+    
+    if (res.recommended && Array.isArray(res.recommended)) {
+      // Sort by nbScore descending to show the most likely matches first
+      const sortedRecommendations = res.recommended.sort((a: any, b: any) => b.nbScore - a.nbScore);
+      setAiRecommendations(sortedRecommendations);
+    } else {
       setAiRecommendations([]);
     }
-  };
+  } catch (e) {
+    console.error("Error fetching AI recommendations:", e);
+    setAiRecommendations([]);
+  }
+};
 
   const handleFindMatch = () => {
     // Fetch recommendations on button click
@@ -291,7 +310,6 @@ const fetchMyList = async () => {
           <div className="lg:col-span-1">
             <div className="bg-white/95 backdrop-blur-sm rounded-3xl p-8 shadow-xl border-2 border-indigo-100 sticky top-32">
               <div className="flex items-center gap-2 mb-4">
-                <span className="text-2xl">🤖</span>
                 <h3 className="text-gray-800 font-bold text-xl">AI Insights</h3>
               </div>
               
