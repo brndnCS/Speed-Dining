@@ -13,6 +13,8 @@ const bcrypt = require("bcryptjs");
 const url = process.env.MONGODB_KEY
 const client = new MongoClient(url);
 
+const path = require('path');
+const fs = require('fs');
 async function start() {
   await client.connect();
   app.listen(5001);
@@ -669,9 +671,9 @@ app.post('/api/saved-based-recommendation', async (req, res) => {
 
 
 // Get a restaurant photo
-app.get('/api/photo', (req, res, next) => {
+app.get('/api/photo', async (req, res) => {
     const photoReference = req.query.ref;
-    
+
     if (!photoReference) {
         return res.status(400).json({ error: 'Photo reference is required.' });
     }
@@ -680,12 +682,34 @@ app.get('/api/photo', (req, res, next) => {
         return res.status(500).json({ error: 'Google API Key not configured on server.' });
     }
 
-    // Construct the Google Places Photo API URL. 
-    // maxwidth=411 is a good default for a mobile card view.
+    // Google Places Photo API URL
     const photoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=411&photo_reference=${photoReference}&key=${GOOGLE_API_KEY}`;
 
-    // Redirect the client's request to the Google API URL
-    // The browser will then load the image from Google directly.
-    res.redirect(302, photoUrl);
+    try {
+        // Request the image from Google
+        const response = await axios({
+            url: photoUrl,
+            method: 'GET',
+            responseType: 'stream',
+            validateStatus: () => true // we handle status manually
+        });
+
+        // If Google says 429 → fallback
+        if (response.status === 429) {
+            console.log("Google API rate limit hit → serving fallback image");
+            return res.sendFile(path.join(__dirname, 'public/stockRestaurant.jpg'));
+        }
+
+        // Pipe Google’s image back to the client
+        res.setHeader('Content-Type', response.headers['content-type']);
+        response.data.pipe(res);
+
+    } catch (error) {
+        console.error('Photo fetch error:', error);
+
+        // In case of unexpected errors, fallback too
+        return res.sendFile(path.join(__dirname, 'public/stock-image.jpg'));
+    }
 });
+
 
