@@ -112,7 +112,7 @@ function SpeedDiningLogin() {
                 {/* Username Input */}
                 <div>
                   <label className="block text-gray-700 font-semibold mb-2">
-                    Email // Username
+                    Email
                   </label>
                   <input
                     type="text"
@@ -169,14 +169,14 @@ function SpeedDiningLogin() {
 
               {/* Additional Links */}
               <div className="mt-6 text-center space-y-3">
-                <button className="block w-full text-pink-500 hover:text-pink-600 font-semibold text-sm transition-colors">
+                <button className="block w-full text-red-700 hover:text-pink-600 font-bold text-sm transition-colors">
                   Forgot password?
                 </button>
                 <div className="text-gray-600 text-sm">
                   Don't have an account?{' '}
                   <button
                     onClick={() => window.location.href = '/signup'} 
-                    className="text-pink-500 hover:text-pink-600 font-semibold transition-colors"
+                    className="text-red-700 hover:text-pink-600 font-bold transition-colors"
                   >
                     Sign up
                   </button>

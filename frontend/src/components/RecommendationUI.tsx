@@ -310,7 +310,7 @@ const fetchMyList = async () => {
           <div className="lg:col-span-1">
             <div className="bg-white/95 backdrop-blur-sm rounded-3xl p-8 shadow-xl border-2 border-indigo-100 sticky top-32">
               <div className="flex items-center gap-2 mb-4">
-                <h3 className="text-gray-800 font-bold text-xl">AI Insights</h3>
+                <h3 className="text-gray-800 font-bold text-xl">Learned Insights</h3>
               </div>
               
               <p className="text-gray-600 font-medium mb-6 leading-relaxed">
@@ -323,10 +323,6 @@ const fetchMyList = async () => {
                   aiRecommendations.map((item, index) => (
                     <div key={item.place_id || index} className="bg-gray-50 rounded-xl p-4 border border-gray-100 shadow-md transition-shadow hover:shadow-lg">
                       <div className="flex gap-3 items-start">
-                        {/* Dynamic Icon based on price_level */}
-                        <div className="h-10 w-10 bg-pink-100 rounded-lg flex items-center justify-center text-xl shadow-inner">
-                          {item.price_level === 3 ? '💲💲💲' : item.price_level === 2 ? '💲💲' : '💲'}
-                        </div>
                         <div className="flex-1">
                           <h4 className="font-bold text-gray-800 leading-tight">
                             {item.name}
@@ -334,19 +330,20 @@ const fetchMyList = async () => {
                           <p className="text-xs text-gray-500 mt-1">
                             {item.vicinity}
                           </p>
+                           <div className="flex items-center gap-1 mt-2">
+                            <span className="text-green-600 text-xs font-medium">
+                              {item.price_level === 3 ? '💲💲💲' : item.price_level === 2 ? '💲💲' : '💲'}
+                            </span>
+                        </div>
                           <div className="flex items-center gap-1 mt-2">
                             <span className="text-yellow-500 text-sm">★</span>
                             <span className="text-xs font-semibold text-gray-700">
                               {item.rating || 'N/A'}
                             </span>
-                            <span className="text-xs text-gray-400 ml-2">
-                              {/* Display the first type/cuisine */}
-                              {item.types ? item.types[0] : ''}
-                            </span>
                           </div>
-                        </div>
                       </div>
                     </div>
+                  </div>
                   ))
                 ) : myList.length === 0 ? (
                   <div className="text-center py-6 text-gray-500">
@@ -554,8 +551,8 @@ const fetchMyList = async () => {
                   <p className="text-gray-500 mb-8 text-lg">Customize your preferences and let us handle the rest.</p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                      <label className="block text-gray-700 font-bold mb-2 text-sm uppercase">Distance</label>
-                      <select value={distance} onChange={(e) => setDistance(e.target.value)} className="w-full bg-white px-4 py-3 rounded-xl border border-gray-200 focus:border-pink-500 focus:ring-2 focus:ring-pink-200 outline-none transition-all font-medium">
+                      <label htmlFor="distance-select" className="block text-gray-700 font-bold mb-2 text-sm uppercase">Distance</label>
+                      <select id = "distance-select" value={distance} onChange={(e) => setDistance(e.target.value)} className="w-full bg-white px-4 py-3 rounded-xl border border-gray-200 focus:border-pink-500 focus:ring-2 focus:ring-pink-200 outline-none transition-all font-medium">
                         <option value="8047">5 miles</option>
                         <option value="16093">10 miles</option>
                         <option value="32187">20 miles</option>
@@ -563,8 +560,8 @@ const fetchMyList = async () => {
                       </select>
                     </div>
                     <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                      <label className="block text-gray-700 font-bold mb-2 text-sm uppercase">Cuisine</label>
-                      <select value={cuisine} onChange={(e) => setCuisine(e.target.value)} className="w-full bg-white px-4 py-3 rounded-xl border border-gray-200 focus:border-pink-500 focus:ring-2 focus:ring-pink-200 outline-none transition-all font-medium">
+                      <label htmlFor="cuisine-select" className="block text-gray-700 font-bold mb-2 text-sm uppercase">Cuisine</label>
+                      <select id = "cuisine-select" value={cuisine} onChange={(e) => setCuisine(e.target.value)} className="w-full bg-white px-4 py-3 rounded-xl border border-gray-200 focus:border-pink-500 focus:ring-2 focus:ring-pink-200 outline-none transition-all font-medium">
                         <option value="Fast food">Fast Food</option>
                         <option value="Dessert">Dessert</option>
                         <option value="American">American</option>
@@ -573,8 +570,8 @@ const fetchMyList = async () => {
                       </select>
                     </div>
                     <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100 md:col-span-2">
-                      <label className="block text-gray-700 font-bold mb-2 text-sm uppercase">Price Range</label>
-                      <select value={price} onChange={(e) => setPrice(e.target.value)} className="w-full bg-white px-4 py-3 rounded-xl border border-gray-200 focus:border-pink-500 focus:ring-2 focus:ring-pink-200 outline-none transition-all font-medium">
+                      <label htmlFor="price-select" className="block text-gray-700 font-bold mb-2 text-sm uppercase">Price Range</label>
+                      <select id="price-select" value={price} onChange={(e) => setPrice(e.target.value)} className="w-full bg-white px-4 py-3 rounded-xl border border-gray-200 focus:border-pink-500 focus:ring-2 focus:ring-pink-200 outline-none transition-all font-medium">
                         <option value="1">💲 Budget Friendly</option>
                         <option value="2">💲💲 Moderate</option>
                         <option value="3">💲💲💲 Upscale</option>

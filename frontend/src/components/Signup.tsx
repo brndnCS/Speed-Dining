@@ -261,7 +261,7 @@ function SpeedDiningSignup() {
                   Already have an account?{' '}
                   <button 
                     onClick={() => window.location.href = '/'}
-                    className="text-pink-500 hover:text-pink-600 font-semibold transition-colors"
+                    className="text-red-700 hover:text-pink-600 font-semibold transition-colors"
                   >
                     Log in
                   </button>
