@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import GridMotion from './GridMotion';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001';
 
 function SpeedDiningSignup() {
   const [message, setMessage] = useState('');
@@ -72,8 +73,11 @@ function SpeedDiningSignup() {
     var js = JSON.stringify(obj);
     
     try {
-      const response = await fetch('http://localhost:5001/api/signup',
-        { method: 'POST', body: js, headers: { 'Content-Type': 'application/json' } });
+      const response = await fetch(`${API_BASE_URL}/api/signup`, {
+        method: 'POST',
+        body: js,
+        headers: { 'Content-Type': 'application/json' }});
+
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
