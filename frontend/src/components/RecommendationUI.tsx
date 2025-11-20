@@ -28,6 +28,9 @@ function RecommendationUI() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
 
+  // AI Recommendations state 
+  const [aiRecommendations, setAiRecommendations] = useState<any[]>([]);
+
   // --- Fetch list on mount for Dashboard Display ---
   useEffect(() => {
     loadDashboardData();
@@ -47,6 +50,29 @@ function RecommendationUI() {
       }
     } catch (e) {
       console.error("Error loading dashboard data", e);
+    }
+  };
+
+  const fetchAiRecommendations = async () => {
+    // We fetch a list of recommended restaurants based on the user's past ratings.
+    try {
+      const response = await fetch('http://localhost:5001/api/savedRecommendations', {
+        method: 'POST',
+        body: JSON.stringify({ userId: userId }),
+        headers: { 'Content-Type': 'application/json' }
+      });
+      let res = await response.json();
+      
+      if (res.recommended && Array.isArray(res.recommended)) {
+        // Sort by nbScore descending to show the most likely matches first
+        const sortedRecommendations = res.recommended.sort((a: any, b: any) => b.nbScore - a.nbScore);
+        setAiRecommendations(sortedRecommendations);
+      } else {
+        setAiRecommendations([]);
+      }
+    } catch (e) {
+      console.error("Error fetching AI recommendations:", e);
+      setAiRecommendations([]);
     }
   };
 
@@ -157,8 +183,9 @@ function RecommendationUI() {
   };
 
   // --- View My List ---
-  const fetchMyList = async () => {
+const fetchMyList = async () => {
     await loadDashboardData();
+    await fetchAiRecommendations(); 
     setViewingList(true);
     setCurrentPage(1);
   };
@@ -193,6 +220,7 @@ function RecommendationUI() {
         setMessage(e.toString());
       }
     };
+    
 
     const handleRateRestaurant = async (placeId: string, rating: number) => {
       try {
@@ -263,6 +291,7 @@ function RecommendationUI() {
           <div className="lg:col-span-1">
             <div className="bg-white/95 backdrop-blur-sm rounded-3xl p-8 shadow-xl border-2 border-indigo-100 sticky top-32">
               <div className="flex items-center gap-2 mb-4">
+                <span className="text-2xl">🤖</span>
                 <h3 className="text-gray-800 font-bold text-xl">AI Insights</h3>
               </div>
               
@@ -270,33 +299,55 @@ function RecommendationUI() {
                 Based on your ratings, we think you'd like:
               </p>
               
-              {/* Placeholder / Shell Content */}
+              {/* Recommendation Content */}
               <div className="space-y-4">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="bg-gray-50 rounded-xl p-4 border border-gray-100 relative overflow-hidden group">
-                    <div className="flex gap-3 items-center">
-                      <div className="h-10 w-10 bg-gray-200 rounded-lg animate-pulse"></div>
-                      <div className="flex-1 space-y-2">
-                        <div className="h-4 bg-gray-200 rounded w-3/4 animate-pulse"></div>
-                        <div className="h-3 bg-gray-200 rounded w-1/2 animate-pulse"></div>
+                {aiRecommendations.length > 0 ? (
+                  aiRecommendations.map((item, index) => (
+                    <div key={item.place_id || index} className="bg-gray-50 rounded-xl p-4 border border-gray-100 shadow-md transition-shadow hover:shadow-lg">
+                      <div className="flex gap-3 items-start">
+                        {/* Dynamic Icon based on price_level */}
+                        <div className="h-10 w-10 bg-pink-100 rounded-lg flex items-center justify-center text-xl shadow-inner">
+                          {item.price_level === 3 ? '💲💲💲' : item.price_level === 2 ? '💲💲' : '💲'}
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="font-bold text-gray-800 leading-tight">
+                            {item.name}
+                          </h4>
+                          <p className="text-xs text-gray-500 mt-1">
+                            {item.vicinity}
+                          </p>
+                          <div className="flex items-center gap-1 mt-2">
+                            <span className="text-yellow-500 text-sm">★</span>
+                            <span className="text-xs font-semibold text-gray-700">
+                              {item.rating || 'N/A'}
+                            </span>
+                            <span className="text-xs text-gray-400 ml-2">
+                              {/* Display the first type/cuisine */}
+                              {item.types ? item.types[0] : ''}
+                            </span>
+                          </div>
+                        </div>
                       </div>
                     </div>
-                    {/* Overlay to show it's just a shell for now */}
-                    <div className="absolute inset-0 bg-white/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Coming Soon</span>
-                    </div>
+                  ))
+                ) : myList.length === 0 ? (
+                  <div className="text-center py-6 text-gray-500">
+                    <p className="text-sm font-medium">Save some matches first!</p>
                   </div>
-                ))}
+                ) : (
+                  <div className="text-center py-6 text-gray-500">
+                    <p className="text-sm font-medium">Not enough data to generate strong recommendations yet.</p>
+                  </div>
+                )}
               </div>
-
+              
               <div className="mt-8 pt-6 border-t border-gray-100 text-center">
                 <p className="text-xs text-gray-400 italic">
-                  Gathering more data to personalize your feed...
+                  Recommendations are powered by your saved ratings.
                 </p>
               </div>
             </div>
           </div>
-
           {/* --- RIGHT COLUMN: EXISTING LIST VIEW --- */}
           <div className="lg:col-span-2">
             <div className="bg-white/95 backdrop-blur-sm rounded-3xl p-8 shadow-2xl">
