@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import GridMotion from './GridMotion';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001';
 
 function SpeedDiningLogin() {
   const [message, setMessage] = useState('');
@@ -46,7 +47,7 @@ function SpeedDiningLogin() {
     var js = JSON.stringify(obj);
     
     try {
-      const response = await fetch('http://localhost:5001/api/login',
+      const response = await fetch(`${API_BASE_URL}/api/login',
         { method: 'POST', body: js, headers: { 'Content-Type': 'application/json' } });
       
       if (!response.ok) {
