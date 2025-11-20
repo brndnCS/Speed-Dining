@@ -47,12 +47,15 @@ function SpeedDiningLogin() {
     var js = JSON.stringify(obj);
     
     try {
-      const response = await fetch(`${API_BASE_URL}/api/login',
-        { method: 'POST', body: js, headers: { 'Content-Type': 'application/json' } });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+  const response = await fetch(`${API_BASE_URL}/api/login`, {
+    method: 'POST',
+    body: js,
+    headers: { 'Content-Type': 'application/json' }
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`);
+  }
       
       var res = await response.json();
       
