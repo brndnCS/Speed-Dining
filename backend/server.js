@@ -695,4 +695,63 @@ app.get('/api/photo', async (req, res) => {
     }
 });
 
+app.post('/api/request-password-reset', async (req, res) => {
+  const { email } = req.body;
+  if (!email) {
+    return res.status(400).json({ error: "Email required" });
+  }
 
+  try {
+    const norm = String(email).trim().toLowerCase();
+    const db = client.db("SpeedDining");
+    const users = db.collection("Users");
+
+    const user = await users.findOne({ LoginLower: norm });
+
+    // Always respond success for security
+    if (!user) {
+      return res.status(200).json({ ok: true });
+    }
+
+    // Generate reset token
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    const resetExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    await users.updateOne(
+      { _id: user._id },
+      {
+        $set: {
+          ResetToken: resetToken,
+          ResetTokenExpires: resetExpires
+        }
+      }
+    );
+
+    const resetUrl = `${API_BASE_URL}/api/reset-password?token=${resetToken}`;
+
+    // Email
+    const mailOptions = {
+      from: process.env.SMTP_USER,
+      to: user.Login,
+      subject: "Reset your Speed Dining password",
+      html: `
+        <h2>Password Reset Request</h2>
+        <p>Click the button below to reset your password:</p>
+        <p>
+          <a href="${resetUrl}" style="padding:10px 15px;background:#ec4899;color:white;text-decoration:none;border-radius:6px;">
+            Reset Password
+          </a>
+        </p>
+        <p>If the button doesn't work, copy this link:</p>
+        <p>${resetUrl}</p>
+      `
+    };
+
+    await transporter.sendMail(mailOptions);
+
+    return res.status(200).json({ ok: true });
+  } catch (e) {
+    console.error("Reset request error:", e);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
