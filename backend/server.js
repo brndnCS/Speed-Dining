@@ -13,6 +13,8 @@ const bcrypt = require("bcryptjs");
 const url = process.env.MONGODB_KEY
 const client = new MongoClient(url);
 
+const path = require('path');
+const fs = require('fs');
 async function start() {
   await client.connect();
   app.listen(5001);
@@ -248,6 +250,35 @@ app.post('/api/signup', async (req, res) => {
   }
 });
 
+app.post('/api/deleteRestaurant', async (req, res, next) => {
+    // incoming: userId, placeId
+    // outgoing: error
+    
+    const { userId, placeId } = req.body;
+    var error = '';
+
+    try {
+        const db = client.db('SpeedDining');
+        // Delete the specific restaurant for this user
+        const result = await db.collection('SavedRestaurants').deleteOne({ 
+            UserId: userId, 
+            PlaceId: placeId 
+        });
+
+        if (result.deletedCount === 0) {
+            // If nothing was deleted, maybe it wasn't found?
+            // We typically still treat this as a "success" (idempotent) or return a specific message
+            console.log("No document matches the provided userId and placeId.");
+        }
+
+        res.status(200).json({ error: '' });
+
+    } catch (e) {
+        error = e.toString();
+        res.status(500).json({ error: error });
+    }
+});
+
 app.get('/api/verify-email', async (req, res) => {
   const { token } = req.query;
 
@@ -291,67 +322,6 @@ app.get('/api/verify-email', async (req, res) => {
   }
 });
 
-
-//restaurant recommendations
-/*
-app.post('/api/recommendations', async (req, res, next) => {
-    //incoming: latitude, longitude, distance, cuisine, price
-    //outgoing: array of restaurant results or error
-    
-    // 1. Get all values from the body, including new filters
-    const { latitude, longitude, distance, cuisine, price } = req.body;
-    
-    if (latitude == null || longitude == null) {
-        return res.status(400).json({ error: 'Latitude and longitude are required.' });
-    }
-
-    // 2. Set a default radius (in meters) if distance isn't provided
-    //    We use parseInt to make sure it's a number.
-    const radius = distance ? parseInt(distance, 10) : 5000; // 5000m (5km) default
-
-    // 3. Dynamically build the URL
-    let url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${latitude},${longitude}&radius=${radius}&type=restaurant&key=${GOOGLE_API_KEY}`;
-
-    // 4. Add filters to the URL if they were provided
-    if (cuisine) {
-        // Use the 'keyword' param for cuisine types like "American"
-        url += `&keyword=${encodeURIComponent(cuisine)}`;
-    }
-
-    if (price) {
-        // Assuming price is a number string: "1", "2", "3", or "4"
-        const priceLevel = parseInt(price, 10);
-        
-        if (priceLevel <= 2) {
-            // maxprice=1 is Budget, maxprice=2 is Moderate
-            url += `&maxprice=${priceLevel}`;
-        } else {
-            // minprice=3 is Upscale, minprice=4 is Very Upscale
-            url += `&minprice=${priceLevel}`;
-        }
-    }
-
-    console.log(`Fetching from Google API: ${url}`); // Good for debugging
-
-    try {
-        const response = await axios.get(url);
-
-        //shuffle results
-        let results = response.data.results || [];
-        for (let i = results.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [results[i], results[j]] = [results[j], results[i]];
-        }
-        
-        res.status(200).json({ results: results });
-
-    } catch (e) {
-        console.error('Google API error:', e.message);
-        res.status(500).json({ error: 'Failed to fetch from Google API' });
-    }
-});
-
-*/
 app.post('/api/recommendations', async (req, res, next) => {
     const { userId, latitude, longitude, distance, cuisine, price } = req.body;
     
@@ -467,7 +437,6 @@ app.post('/api/recommendations', async (req, res, next) => {
 });
 
 
-
 app.post("/api/rateRestaurant", async (req, res) => {
   try {
     const { userId, placeId, rating } = req.body;
@@ -555,12 +524,139 @@ app.post('/api/myRestaurants', async (req, res, next) => {
     }
 });
 
+// Replace your saved-based-recommendation endpoint with this version for debugging:
 
+app.post('/api/saved-based-recommendation', async (req, res) => {
+    const { userId, latitude, longitude } = req.body;
+
+    if (!userId || latitude == null || longitude == null) {
+        return res.status(400).json({ error: 'userId, latitude, and longitude required.' });
+    }
+
+    try {
+        const db = client.db("SpeedDining");
+
+        // 1. Get user's **rated** restaurants
+        const userRest = await db.collection("SavedRestaurants")
+            .find({ UserId: userId, UserRating: { $ne: "pending" } })
+            .toArray();
+
+        console.log("\nRated restaurants (UserRating != 'pending'):", userRest.length);
+        console.log("Rated restaurant details:");
+        userRest.forEach((r, idx) => {
+            console.log(`  ${idx + 1}. ${r.Name} - Rating: ${r.UserRating}`);
+        });
+        
+        if (userRest.length < 3) {
+            console.log("\n❌ ERROR: Not enough rated restaurants");
+            console.log(`   Found: ${userRest.length}, Need: at least 3`);
+            console.log("===========================================\n");
+            return res.status(200).json({ 
+                error: "Not enough rated restaurants to generate personalized suggestions." 
+            });
+        }
+        
+        console.log("\n✅ SUCCESS: Enough rated restaurants found");
+        console.log("===========================================\n");
+
+        // 2. Also get ALL saved restaurants → to prevent recommending duplicates
+        const savedIds = await db.collection("SavedRestaurants")
+            .find({ UserId: userId })
+            .project({ PlaceId: 1 })
+            .toArray();
+
+        const savedSet = new Set(savedIds.map(x => x.PlaceId));
+
+        // 3. Fetch 50 random nearby restaurants from Google
+        const radius = 80000; // ~5 miles, adjustable
+        const url =
+            `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${latitude},${longitude}` +
+            `&radius=${radius}&type=restaurant&key=${GOOGLE_API_KEY}`;
+
+        const response = await axios.get(url);
+        let candidates = response.data.results || [];
+
+        // Shuffle + limit to 50
+        for (let i = candidates.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+        }
+        candidates = candidates.slice(0, 50);
+
+        // 4. Compute distance helper
+        const addDistance = (lat1, lon1, lat2, lon2) => {
+            const R = 6371000;
+            const dLat = (lat2 - lat1) * Math.PI/180;
+            const dLon = (lon2 - lon1) * Math.PI/180;
+            const a =
+                Math.sin(dLat/2) ** 2 +
+                Math.cos(lat1*Math.PI/180) *
+                Math.cos(lat2*Math.PI/180) *
+                Math.sin(dLon/2) ** 2;
+            return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+        };
+
+        candidates = candidates.map(r => ({
+            ...r,
+            distance: addDistance(
+                latitude,
+                longitude,
+                r.geometry.location.lat,
+                r.geometry.location.lng
+            )
+        }));
+
+        // 5. Remove restaurants the user already saved
+        candidates = candidates.filter(r => !savedSet.has(r.place_id));
+
+        if (candidates.length === 0) {
+            return res.status(200).json({ error: "No new restaurants nearby." });
+        }
+
+        // 6. Train NB
+        const nb = new NaiveBayes();
+        userRest.forEach(r => nb.train({
+            name: r.Name,
+            rating: r.Rating,
+            types: r.Types,
+            price: r.PriceLevel,
+            distance: r.Distance,
+            openNow: r.OpenNow,
+            userRating: r.UserRating
+        }));
+
+        // 7. Score all candidates
+        const scored = candidates.map(r => ({
+            ...r,
+            nbScore: nb.predict({
+                name: r.name,
+                rating: r.rating,
+                types: r.types,
+                price: r.price_level,
+                distance: r.distance,
+                openNow: r.opening_hours?.open_now ?? null
+            })
+        }));
+
+        // Sort by score descending
+        scored.sort((a, b) => b.nbScore - a.nbScore);
+
+        // return top 3 (or fewer if less than 3 scored items)
+        const recommended = scored.slice(0, 3);
+
+        return res.status(200).json({ recommended });
+
+
+    } catch (err) {
+        console.error("Saved-based recommendation error:", err);
+        res.status(500).json({ error: "Failed to generate saved-based recommendation." });
+    }
+});
 
 // Get a restaurant photo
-app.get('/api/photo', (req, res, next) => {
+app.get('/api/photo', async (req, res) => {
     const photoReference = req.query.ref;
-    
+
     if (!photoReference) {
         return res.status(400).json({ error: 'Photo reference is required.' });
     }
@@ -569,12 +665,34 @@ app.get('/api/photo', (req, res, next) => {
         return res.status(500).json({ error: 'Google API Key not configured on server.' });
     }
 
-    // Construct the Google Places Photo API URL. 
-    // maxwidth=411 is a good default for a mobile card view.
+    // Google Places Photo API URL
     const photoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=411&photo_reference=${photoReference}&key=${GOOGLE_API_KEY}`;
 
-    // Redirect the client's request to the Google API URL
-    // The browser will then load the image from Google directly.
-    res.redirect(302, photoUrl);
+    try {
+        // Request the image from Google
+        const response = await axios({
+            url: photoUrl,
+            method: 'GET',
+            responseType: 'stream',
+            validateStatus: () => true // we handle status manually
+        });
+
+        // If Google says 429 → fallback
+        if (response.status === 429) {
+            console.log("Google API rate limit hit → serving fallback image");
+            return res.sendFile(path.join(__dirname, 'public/stockRestaurant.jpg'));
+        }
+
+        // Pipe Google’s image back to the client
+        res.setHeader('Content-Type', response.headers['content-type']);
+        response.data.pipe(res);
+
+    } catch (error) {
+        console.error('Photo fetch error:', error);
+
+        // In case of unexpected errors, fallback too
+        return res.sendFile(path.join(__dirname, 'public/stock-image.jpg'));
+    }
 });
+
 
