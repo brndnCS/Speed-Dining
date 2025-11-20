@@ -250,6 +250,35 @@ app.post('/api/signup', async (req, res) => {
   }
 });
 
+app.post('/api/deleteRestaurant', async (req, res, next) => {
+    // incoming: userId, placeId
+    // outgoing: error
+    
+    const { userId, placeId } = req.body;
+    var error = '';
+
+    try {
+        const db = client.db('SpeedDining');
+        // Delete the specific restaurant for this user
+        const result = await db.collection('SavedRestaurants').deleteOne({ 
+            UserId: userId, 
+            PlaceId: placeId 
+        });
+
+        if (result.deletedCount === 0) {
+            // If nothing was deleted, maybe it wasn't found?
+            // We typically still treat this as a "success" (idempotent) or return a specific message
+            console.log("No document matches the provided userId and placeId.");
+        }
+
+        res.status(200).json({ error: '' });
+
+    } catch (e) {
+        error = e.toString();
+        res.status(500).json({ error: error });
+    }
+});
+
 app.get('/api/verify-email', async (req, res) => {
   const { token } = req.query;
 
