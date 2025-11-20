@@ -755,3 +755,251 @@ app.post('/api/request-password-reset', async (req, res) => {
     return res.status(500).json({ error: "Server error" });
   }
 });
+
+app.get('/api/reset-password', async (req, res) => {
+  const { token } = req.query;
+
+  if (!token) {
+    return res.status(400).send('Missing token');
+  }
+
+  try {
+    const db = client.db("SpeedDining");
+    const users = db.collection("Users");
+
+    const user = await users.findOne({ ResetToken: token });
+    if (!user) {
+      return res.status(400).send('Invalid or already used token.');
+    }
+
+    if (user.ResetTokenExpires && user.ResetTokenExpires < new Date()) {
+      return res.status(400).send('Reset link has expired. Please request a new one.');
+    }
+
+    // Serve an HTML form to reset password
+    return res.send(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Reset Password - Speed Dining</title>
+          <style>
+            body {
+              font-family: system-ui, -apple-system, sans-serif;
+              background: linear-gradient(135deg, #ec4899 0%, #ef4444 50%, #f97316 100%);
+              min-height: 100vh;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              padding: 20px;
+              margin: 0;
+            }
+            .container {
+              background: white;
+              border-radius: 24px;
+              padding: 40px;
+              max-width: 400px;
+              width: 100%;
+              box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            }
+            h1 {
+              color: #1f2937;
+              margin-bottom: 10px;
+              font-size: 28px;
+            }
+            p {
+              color: #6b7280;
+              margin-bottom: 24px;
+            }
+            label {
+              display: block;
+              color: #374151;
+              font-weight: 600;
+              margin-bottom: 8px;
+              font-size: 14px;
+            }
+            input {
+              width: 100%;
+              padding: 12px 16px;
+              border: 2px solid #e5e7eb;
+              border-radius: 12px;
+              font-size: 16px;
+              margin-bottom: 16px;
+              box-sizing: border-box;
+              transition: border-color 0.2s;
+            }
+            input:focus {
+              outline: none;
+              border-color: #ec4899;
+            }
+            button {
+              width: 100%;
+              padding: 14px;
+              background: linear-gradient(135deg, #ec4899, #ef4444);
+              color: white;
+              border: none;
+              border-radius: 12px;
+              font-size: 16px;
+              font-weight: 700;
+              cursor: pointer;
+              transition: transform 0.2s, box-shadow 0.2s;
+            }
+            button:hover {
+              transform: translateY(-2px);
+              box-shadow: 0 10px 20px rgba(236, 72, 153, 0.3);
+            }
+            button:disabled {
+              opacity: 0.5;
+              cursor: not-allowed;
+              transform: none;
+            }
+            .message {
+              padding: 12px;
+              border-radius: 8px;
+              margin-bottom: 16px;
+              font-size: 14px;
+              display: none;
+            }
+            .message.error {
+              background: #fee;
+              color: #c00;
+              border-left: 4px solid #c00;
+            }
+            .message.success {
+              background: #efe;
+              color: #060;
+              border-left: 4px solid #060;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <h1>Reset Password</h1>
+            <p>Enter your new password below</p>
+            
+            <div id="message" class="message"></div>
+            
+            <form id="resetForm">
+              <div>
+                <label>New Password</label>
+                <input type="password" id="password" placeholder="At least 6 characters" required minlength="6">
+              </div>
+              
+              <div>
+                <label>Confirm Password</label>
+                <input type="password" id="confirmPassword" placeholder="Re-enter password" required>
+              </div>
+              
+              <button type="submit" id="submitBtn">Reset Password</button>
+            </form>
+          </div>
+
+          <script>
+            const form = document.getElementById('resetForm');
+            const message = document.getElementById('message');
+            const submitBtn = document.getElementById('submitBtn');
+
+            form.addEventListener('submit', async (e) => {
+              e.preventDefault();
+              
+              const password = document.getElementById('password').value;
+              const confirmPassword = document.getElementById('confirmPassword').value;
+
+              if (password !== confirmPassword) {
+                message.textContent = 'Passwords do not match';
+                message.className = 'message error';
+                message.style.display = 'block';
+                return;
+              }
+
+              if (password.length < 6) {
+                message.textContent = 'Password must be at least 6 characters';
+                message.className = 'message error';
+                message.style.display = 'block';
+                return;
+              }
+
+              submitBtn.disabled = true;
+              submitBtn.textContent = 'Resetting...';
+
+              try {
+                const response = await fetch('/api/reset-password', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ token: '${token}', password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                  message.textContent = 'Password reset successfully! Redirecting to login...';
+                  message.className = 'message success';
+                  message.style.display = 'block';
+                  
+                  setTimeout(() => {
+                    window.location.href = 'http://localhost:5173';
+                  }, 2000);
+                } else {
+                  message.textContent = data.error || 'Failed to reset password';
+                  message.className = 'message error';
+                  message.style.display = 'block';
+                  submitBtn.disabled = false;
+                  submitBtn.textContent = 'Reset Password';
+                }
+              } catch (error) {
+                message.textContent = 'Connection error. Please try again.';
+                message.className = 'message error';
+                message.style.display = 'block';
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Reset Password';
+              }
+            });
+          </script>
+        </body>
+      </html>
+    `);
+  } catch (e) {
+    console.error('Reset password page error:', e);
+    return res.status(500).send('Server error while loading reset page.');
+  }
+});
+
+app.post('/api/reset-password', async (req, res) => {
+  const { token, password } = req.body;
+
+  if (!token || !password) {
+    return res.status(400).json({ error: 'Token and password required' });
+  }
+
+  if (password.length < 6) {
+    return res.status(400).json({ error: 'Password must be at least 6 characters' });
+  }
+
+  try {
+    const db = client.db("SpeedDining");
+    const users = db.collection("Users");
+
+    const user = await users.findOne({ ResetToken: token });
+    if (!user) {
+      return res.status(400).json({ error: 'Invalid or already used token' });
+    }
+
+    if (user.ResetTokenExpires && user.ResetTokenExpires < new Date()) {
+      return res.status(400).json({ error: 'Reset link has expired' });
+    }
+
+    const hashedPassword = bcrypt.hashSync(password, 10);
+
+    await users.updateOne(
+      { _id: user._id },
+      {
+        $set: { Password: hashedPassword },
+        $unset: { ResetToken: "", ResetTokenExpires: "" }
+      }
+    );
+
+    return res.status(200).json({ ok: true });
+  } catch (e) {
+    console.error('Reset password error:', e);
+    return res.status(500).json({ error: 'Server error while resetting password' });
+  }
+});

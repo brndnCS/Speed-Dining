@@ -8,6 +8,11 @@ function SpeedDiningLogin() {
   const [loginPassword, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetMessage, setResetMessage] = useState('');
+  const [isResetting, setIsResetting] = useState(false);
+
   // Restaurant images for the animated background
   const backgroundItems = [
     '/images/HamburgerSpeeddining.png',
@@ -72,6 +77,44 @@ function SpeedDiningLogin() {
       console.error(error);
     } finally {
       setIsLoading(false);
+    }
+  }
+
+  async function handleForgotPassword(event: any): Promise<void> {
+    event.preventDefault();
+    setIsResetting(true);
+    setResetMessage('');
+    
+    if (!resetEmail) {
+      setResetMessage('Please enter your email address');
+      setIsResetting(false);
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/request-password-reset`, {
+        method: 'POST',
+        body: JSON.stringify({ email: resetEmail }),
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      const res = await response.json();
+
+      if (response.ok) {
+        setResetMessage('If an account exists with this email, you will receive a password reset link shortly.');
+        setTimeout(() => {
+          setShowForgotPassword(false);
+          setResetEmail('');
+          setResetMessage('');
+        }, 3000);
+      } else {
+        setResetMessage(res.error || 'An error occurred. Please try again.');
+      }
+    } catch (error: any) {
+      setResetMessage('Connection error. Please try again.');
+      console.error(error);
+    } finally {
+      setIsResetting(false);
     }
   }
 
@@ -171,9 +214,12 @@ function SpeedDiningLogin() {
                 </button>
               </div>
 
-              {/* Additional Links */}
+            {/* Additional Links */}
               <div className="mt-6 text-center space-y-3">
-                <button className="block w-full text-red-700 hover:text-pink-600 font-bold text-sm transition-colors">
+                <button 
+                  onClick={() => setShowForgotPassword(true)}
+                  className="block w-full text-red-700 hover:text-pink-600 font-bold text-sm transition-colors"
+                >
                   Forgot password?
                 </button>
                 <div className="text-gray-600 text-sm">
@@ -194,6 +240,68 @@ function SpeedDiningLogin() {
             Discover restaurants as fast as you swipe ❤️
           </p>
         </div>
+
+         {/* Forgot Password Modal */}
+        {showForgotPassword && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8">
+              <h2 className="text-2xl font-bold text-gray-800 mb-4">Reset Password</h2>
+              <p className="text-gray-600 mb-6">
+                Enter your email address and we'll send you a link to reset your password.
+              </p>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-gray-700 font-semibold mb-2">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    value={resetEmail}
+                    onChange={(e) => setResetEmail(e.target.value)}
+                    placeholder="Enter your email"
+                    className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-pink-500 focus:outline-none transition-colors"
+                    onKeyPress={(e: any) => e.key === 'Enter' && handleForgotPassword(e)}
+                  />
+                </div>
+
+                {resetMessage && (
+                  <div className={`border-l-4 p-4 rounded ${
+                    resetMessage.includes('receive') 
+                      ? 'bg-green-50 border-green-500' 
+                      : 'bg-red-50 border-red-500'
+                  }`}>
+                    <p className={`text-sm ${
+                      resetMessage.includes('receive') ? 'text-green-700' : 'text-red-700'
+                    }`}>
+                      {resetMessage}
+                    </p>
+                  </div>
+                )}
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      setShowForgotPassword(false);
+                      setResetEmail('');
+                      setResetMessage('');
+                    }}
+                    className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-3 rounded-xl transition-all duration-200"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleForgotPassword}
+                    disabled={isResetting}
+                    className="flex-1 bg-gradient-to-r from-pink-500 to-red-500 text-white font-bold py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isResetting ? 'Sending...' : 'Send Reset Link'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
